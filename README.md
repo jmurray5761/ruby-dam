@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # README
 
 This README would normally document whatever steps are necessary to get the
@@ -22,3 +23,7 @@ Things you may want to cover:
 * Deployment instructions
 
 * ...
+=======
+# ruby-dam
+Ruby digital asset manager learning project
+>>>>>>> 6fd691882a009c291de38bbcd9c2b2c232cd886f
