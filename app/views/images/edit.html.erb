@@ -1,0 +1,30 @@
+<%= link_to 'Back to Images', images_path, class: 'back-link' %>
+
+<h1>Edit Image</h1>
+
+<%= form_with(model: @image, local: true, html: { class: "form-container" }) do |form| %>
+  <% if @image.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@image.errors.count, "error") %> prohibited this image from being saved:</h2>
+      <ul>
+        <% @image.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
+  <div class="field">
+    <%= form.label :name %>
+    <%= form.text_field :name, id: :image_name %>
+  </div>
+
+  <div class="field">
+    <%= form.label :description %>
+    <%= form.text_area :description, id: :image_description %>
+  </div>
+
+  <div class="actions">
+    <%= form.submit "Update Image" %>
+  </div>
+<% end %>

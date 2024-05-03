@@ -1,0 +1,17 @@
+<%= link_to 'New Image', new_image_path, class: 'new-image-link' %>
+<h1>Images Home Page</h1>
+
+<ul class="image-list">
+  <% @images.each do |image| %>
+    <li class="image-list-item">
+      <div class="image-list-container">
+        <% if image.file.attached? %>
+          <%= image_tag(image.file, class: 'image') %>
+        <% else %>
+          <p>No image available</p>
+        <% end %>
+        <%= link_to 'Show Image', image_path(image), class: 'show-image-link' %>
+      </div>
+    </li>
+  <% end %>
+</ul>

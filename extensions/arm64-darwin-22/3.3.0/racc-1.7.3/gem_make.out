@@ -1,0 +1,18 @@
+current directory: /Users/jmurray5761/RubymineProjects/ruby-dam/gems/racc-1.7.3/ext/racc/cparse
+/Users/jmurray5761/.rbenv/versions/3.3.0/bin/ruby extconf.rb
+creating Makefile
+
+current directory: /Users/jmurray5761/RubymineProjects/ruby-dam/gems/racc-1.7.3/ext/racc/cparse
+make DESTDIR\= sitearchdir\=./.gem.20240503-51779-hieycq sitelibdir\=./.gem.20240503-51779-hieycq clean
+
+current directory: /Users/jmurray5761/RubymineProjects/ruby-dam/gems/racc-1.7.3/ext/racc/cparse
+make DESTDIR\= sitearchdir\=./.gem.20240503-51779-hieycq sitelibdir\=./.gem.20240503-51779-hieycq
+compiling cparse.c
+linking shared-object racc/cparse.bundle
+
+current directory: /Users/jmurray5761/RubymineProjects/ruby-dam/gems/racc-1.7.3/ext/racc/cparse
+make DESTDIR\= sitearchdir\=./.gem.20240503-51779-hieycq sitelibdir\=./.gem.20240503-51779-hieycq install
+/usr/bin/install -c -m 0755 cparse.bundle ./.gem.20240503-51779-hieycq/racc
+
+current directory: /Users/jmurray5761/RubymineProjects/ruby-dam/gems/racc-1.7.3/ext/racc/cparse
+make DESTDIR\= sitearchdir\=./.gem.20240503-51779-hieycq sitelibdir\=./.gem.20240503-51779-hieycq clean

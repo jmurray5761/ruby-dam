@@ -1,0 +1,170 @@
+h1 {
+    text-align: center;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.inline-text {
+    display: inline;
+}
+
+.flex-row {
+    display: flex;
+    align-items: normal;
+}
+
+.label-bold {
+    margin-right: 5px; /* Adjust spacing as needed */
+}
+
+.bold {
+    font-weight: bold;
+}
+
+.back-link, .show-image-link {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 16px;
+    background: #007BFF;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    text-align: center;
+}
+
+.back-link {
+    margin-bottom: 20px;
+}
+
+.back-link:hover, .new-image-link:hover, .show-image-link:hover, .edit-image-link:hover, .delete-image-link:hover {
+    background: #0056b3;
+}
+
+.new-image-link, .edit-image-link, .delete-image-link {
+    background: #007BFF;
+    text-align: center;
+    display: inline-block;
+    margin-top: 10px;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+
+.content-container {
+    display: flex;
+    align-items: start; /* Aligns items to the top */
+    justify-content: space-between;
+    gap: 20px; /* Adds space between the image and the text */
+}
+
+.image-info-container {
+    flex: 1;
+    max-width: 30%;
+    margin-bottom: 30px; /* Space between images */
+    padding:30px; /* Padding around the image within the border */
+    border: 1px solid #ccc; /* Adds a light gray border */
+    text-align: left;
+    background-color: #b0c4de; /* Light blue-grey */
+}
+
+.image-show-container {
+    flex: 1;
+    max-width: 70%;
+    margin-bottom: 30px; /* Space between images */
+    padding: 10px; /* Padding around the image within the border */
+    border: 1px solid #ccc; /* Adds a light gray border */
+    text-align: left;
+}
+
+.image-show, .image {
+    width: 100%; /* Make the image fill the container */
+}
+
+.image-show {
+    height: 100%;
+}
+
+.image {
+    max-width: 300px; /* Limit image maximum width */
+    height: 200px; /* Maintain aspect ratio */
+}
+
+.image-description {
+    flex: 2;
+    padding: 10px;
+}
+
+.actions, .image-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+.actions li, .image-list-item {
+    display: inline-block;
+    margin-right: 10px;  /* Right margin for inline elements */
+}
+
+.image-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center; /* Centers the items horizontally within the container */
+    align-items: center; /* Optional: Aligns items vertically */
+    margin-bottom: -10px; /* Adjust as necessary */
+}
+
+.image-list-item {
+    flex: 0 0 300px; /* flex-basis set to 300px, does not grow or shrink */
+    text-align: center;
+    border: 1px solid #ccc;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+    margin-bottom: 10px; /* Add bottom margin to create space between the rows */
+    margin-right: 10px; /* Ensures spacing between items; remember the last item in a row might need adjustment */
+}
+
+.form-container {
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #f9f9f9;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-container label, .form-container input[type="submit"] {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-container input[type="text"],
+.form-container textarea,
+.form-container input[type="file"] {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.form-container input[type="submit"] {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.form-container input[type="submit"]:hover {
+    background-color: #45a049;
+}
+
+.form-container textarea {
+    height: 100px;
+}

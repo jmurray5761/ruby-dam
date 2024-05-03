@@ -1,0 +1,20 @@
+<%= link_to 'Back to Images', images_path, class: 'back-link' %>
+
+<h1>New Image</h1>
+
+<%= form_with model: @image, local: true, html: { class: "form-container" } do |form| %>
+  <div>
+    <%= form.label :name %>
+    <%= form.text_field :name %>
+  </div>
+
+  <div>
+    <%= form.label :description %>
+    <%= form.text_area :description %>
+  </div>
+
+  <div>
+    <%= form.file_field :file, multiple: false, direct_upload: true %>
+    <%= form.submit "Upload" %>
+  </div>
+<% end %>

@@ -1,0 +1,50 @@
+<%= link_to 'Back to Images', images_path, class: 'back-link' %>
+
+<h1>Show Image Page</h1>
+
+<div class="content-container" data-controller="description-toggle">
+  <div class="image-show-container">
+    <%= image_tag(@image.file, class: 'image-show') if @image.file.attached? %>
+  </div>
+
+  <div class="image-info-container">
+    <p class="bold label-bold">
+      Name:
+    </p>
+    <%= @image.name %>
+
+    <p class="bold label-bold">
+      Long Description:
+    </p>
+    <span data-description-toggle-target="shortDescription"><%= @image.description.truncate(100) %></span>
+    <span data-description-toggle-target="fullDescription" style="display: none;"><%= @image.description %></span>
+    <a href="#" data-action="description-toggle#toggle" data-description-toggle-target="toggleLink">Show More</a>
+
+
+    <!-- Additional metadata about the image -->
+    <p class="bold label-bold">
+      Filename:
+    </p>
+    <%= @image.file.filename.to_s %>
+
+    <p class="bold label-bold">
+      Content Type:
+    </p>
+    <%= @image.file.content_type %>
+
+    <p class="bold label-bold">
+      File Size:
+    </p>
+    <%= number_to_human_size(@image.file.byte_size) %>
+
+    <p class="bold label-bold">
+      Uploaded On:
+    </p>
+    <%= @image.file.created_at.strftime("%Y-%m-%d %H:%M") %>
+  </div>
+</div>
+
+<ul class="actions">
+  <%= link_to "Edit", edit_image_path(@image), class: 'edit-image-link' %>
+  <%= link_to "Destroy", image_path(@image), method: :delete, data: { confirm: "Are you sure?" }, class: 'delete-image-link' %>
+</ul>
