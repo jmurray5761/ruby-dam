@@ -1,7 +1,8 @@
 class ImagesController < ApplicationController
+  include Pagy::Backend
 
   def index
-    @images = Image.all
+    @pagy, @images = pagy(Image.all, items: 10)
   end
 
   def show

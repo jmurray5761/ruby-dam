@@ -1,3 +1,4 @@
+
 h1 {
     text-align: center;
     margin-top: 20px;
@@ -167,4 +168,33 @@ h1 {
 
 .form-container textarea {
     height: 100px;
+}
+/* style for pagination */
+.pagination {
+    text-align: center;
+    margin-top: 30px;
+}
+
+.pagination a {
+    padding: 8px 16px;
+    margin: 5px;
+    border-radius: 5px;
+    background-color: #f4f4f4;
+    text-decoration: none;
+    color: #333;
+}
+
+.pagination a:hover {
+    background-color: #ddd;
+}
+
+.pagination .current {
+    background-color: #007bff;
+    color: white;
+}
+.images-container {
+    min-height: 700px; /* Adjust based on typical height with full images */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Ensures pagination is pushed to the bottom */
 }

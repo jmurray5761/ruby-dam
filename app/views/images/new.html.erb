@@ -2,7 +2,7 @@
 
 <h1>New Image</h1>
 
-<%= form_with model: @image, local: true, html: { class: "form-container" } do |form| %>
+<%= form_with model: @image, local: true, html: { multipart: true, class: "form-container" } do |form| %>
   <div>
     <%= form.label :name %>
     <%= form.text_field :name %>

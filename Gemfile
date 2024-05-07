@@ -65,3 +65,9 @@ group :test do
   gem "capybara"
   gem "selenium-webdriver"
 end
+
+# add pagy for infininte scrolling
+gem 'pagy'
+
+# add image processing
+gem 'image_processing', '~> 1.2'
