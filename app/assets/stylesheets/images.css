@@ -86,8 +86,8 @@ h1 {
 }
 
 .image {
-    max-width: 300px; /* Limit image maximum width */
-    height: 200px; /* Maintain aspect ratio */
+    max-width: 200px; /* Limit image maximum width */
+    height: 150px; /* Maintain aspect ratio */
 }
 
 .image-description {
@@ -114,7 +114,7 @@ h1 {
 }
 
 .image-list-item {
-    flex: 0 0 300px; /* flex-basis set to 300px, does not grow or shrink */
+    flex: 0 0 250px; /* flex-basis set to 300px, does not grow or shrink */
     text-align: center;
     border: 1px solid #ccc;
     padding: 10px;

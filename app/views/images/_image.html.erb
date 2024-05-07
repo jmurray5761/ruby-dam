@@ -2,7 +2,7 @@
   <div class="image-list-container">
     <% if image.file.attached? %>
       <% puts "File attached: #{image.file.inspect}" %>
-      <%= image_tag(image.file.variant(resize_to_limit: [100, 100]).processed, class: 'image') %>
+      <%= image_tag(image.file.variant(resize_to_limit: [200, 150]).processed, class: 'image') %>
     <% else %>
       <p>No image available</p>
     <% end %>
