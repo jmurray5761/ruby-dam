@@ -22,7 +22,7 @@ h1 {
     font-weight: bold;
 }
 
-.back-link, .show-image-link {
+.link-button {
     display: inline-block;
     margin-top: 10px;
     padding: 8px 16px;
@@ -33,23 +33,67 @@ h1 {
     text-align: center;
 }
 
-.back-link {
-    margin-bottom: 20px;
-}
-
-.back-link:hover, .new-image-link:hover, .show-image-link:hover, .edit-image-link:hover, .delete-image-link:hover {
+.link-button:hover {
     background: #0056b3;
 }
 
-.new-image-link, .edit-image-link, .delete-image-link {
-    background: #007BFF;
-    text-align: center;
-    display: inline-block;
-    margin-top: 10px;
-    color: white;
-    padding: 8px 16px;
-    border-radius: 4px;
+/* classes used on index page */
+.images-container {
+    min-height: 700px; /* Adjust based on typical height with full images */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Ensures pagination is pushed to the bottom */
 }
+
+.image-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center; /* Centers the items horizontally within the container */
+    align-items: center; /* Optional: Aligns items vertically */
+    margin-bottom: -10px; /* Adjust as necessary */
+}
+
+.image-list-item {
+    flex: 0 0 250px; /* flex-basis set to 250px, does not grow or shrink */
+    text-align: center;
+    padding: 10px;
+    margin-bottom: 10px; /* Add bottom margin to create space between the rows */
+    margin-right: 10px; /* Ensures spacing between items */
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+    height: 250px; /* Fixed height for each item */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between; /* Distributes space around content */
+    overflow: hidden; /* Hides any content that overflows the set height */
+}
+
+.image {
+    width: auto;  /* Ensures the width adjusts based on the actual image size and aspect ratio */
+    height: auto; /* Ensures the height adjusts based on the actual image size and aspect ratio */
+    max-width: 100%; /* Ensures the image does not exceed the container width */
+    max-height: 150px; /* Sets a maximum height constraint to keep image height uniform */
+    object-fit: contain; /* Ensures the image is scaled correctly within its container, preserving aspect ratio */
+    display: block; /* Aligns the image nicely within the container */
+    margin: auto; /* Centers the image horizontally within its container */
+}
+
+.content-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Centers content horizontally */
+    justify-content: center; /* Centers content vertically */
+    height: 150px; /* Sets the height of the container at 150px */
+}
+
+.image-name {
+    font-size: 1.2em;  /* Adjust size as necessary */
+    font-weight: bold; /* Makes text bold */
+    color: #333;       /* Dark color for better readability */
+    text-align: center; /* Centers the text above the image */
+    margin-bottom: 10px; /* Adds space between the name and the image */
+}
+/* end of classes used for index page */
 
 .content-container {
     display: flex;
@@ -77,6 +121,7 @@ h1 {
     text-align: left;
 }
 
+
 .image-show, .image {
     width: 100%; /* Make the image fill the container */
 }
@@ -85,10 +130,6 @@ h1 {
     height: 100%;
 }
 
-.image {
-    max-width: 200px; /* Limit image maximum width */
-    height: 150px; /* Maintain aspect ratio */
-}
 
 .image-description {
     flex: 2;
@@ -103,26 +144,6 @@ h1 {
 .actions li, .image-list-item {
     display: inline-block;
     margin-right: 10px;  /* Right margin for inline elements */
-}
-
-.image-list {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center; /* Centers the items horizontally within the container */
-    align-items: center; /* Optional: Aligns items vertically */
-    margin-bottom: -10px; /* Adjust as necessary */
-}
-
-.image-list-item {
-    flex: 0 0 250px; /* flex-basis set to 300px, does not grow or shrink */
-    text-align: center;
-    border: 1px solid #ccc;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
-    box-sizing: border-box;
-    margin-bottom: 10px; /* Add bottom margin to create space between the rows */
-    margin-right: 10px; /* Ensures spacing between items; remember the last item in a row might need adjustment */
 }
 
 .form-container {
@@ -169,6 +190,7 @@ h1 {
 .form-container textarea {
     height: 100px;
 }
+
 /* style for pagination */
 .pagination {
     text-align: center;
@@ -191,10 +213,4 @@ h1 {
 .pagination .current {
     background-color: #007bff;
     color: white;
-}
-.images-container {
-    min-height: 700px; /* Adjust based on typical height with full images */
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between; /* Ensures pagination is pushed to the bottom */
 }

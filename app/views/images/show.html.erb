@@ -1,4 +1,4 @@
-<%= link_to 'Back to Images', images_path, class: 'back-link' %>
+<%= link_to 'Back to Images', images_path, class: 'link-button' %>
 
 <h1>Show Image Page</h1>
 
@@ -45,6 +45,6 @@
 </div>
 
 <ul class="actions">
-  <%= link_to "Edit", edit_image_path(@image), class: 'edit-image-link' %>
-  <%= link_to "Destroy", image_path(@image), method: :delete, data: { confirm: "Are you sure?" }, class: 'delete-image-link' %>
+  <%= link_to "Edit", edit_image_path(@image), class: 'link-button' %>
+  <%= link_to "Destroy", image_path(@image), method: :delete, data: { confirm: "Are you sure?" }, class: 'link-button' %>
 </ul>
