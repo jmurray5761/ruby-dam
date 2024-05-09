@@ -71,3 +71,6 @@ gem 'pagy'
 
 # add image processing
 gem 'image_processing', '~> 1.2'
+
+# add validations for uploads and upload sizes
+gem 'active_storage_validations'

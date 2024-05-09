@@ -5,16 +5,28 @@
 <%= form_with model: @image, local: true, html: { multipart: true, class: "form-container" } do |form| %>
   <div>
     <%= form.label :name %>
-    <%= form.text_field :name %>
+    <%= form.text_field :name, required: true %>
   </div>
 
   <div>
     <%= form.label :description %>
-    <%= form.text_area :description %>
+    <%= form.text_area :description, required: true %>
   </div>
 
   <div>
-    <%= form.file_field :file, multiple: false, direct_upload: true %>
+    <%= form.file_field :file, multiple: false, direct_upload: true, required: true %>
     <%= form.submit "Upload", class: 'link-button' %>
   </div>
+
+  <% if @image.errors.any? %>
+    <div id="error_explanation">
+      <h2><%= pluralize(@image.errors.count, "error") %> prohibited this image from being saved:</h2>
+      <ul>
+        <% @image.errors.full_messages.each do |message| %>
+          <li><%= message %></li>
+        <% end %>
+      </ul>
+    </div>
+  <% end %>
+
 <% end %>

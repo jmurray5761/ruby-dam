@@ -146,10 +146,11 @@ h1 {
     margin-right: 10px;  /* Right margin for inline elements */
 }
 
+/* start of form classes */
 .form-container {
     max-width: 600px;
-    margin: 20px auto;
-    padding: 20px;
+    margin: 20px auto; /* Shorthand for top-bottom and left-right */
+    padding: 20px; /* All four sides */
     background: #f9f9f9;
     border: 1px solid #ccc;
     border-radius: 8px;
@@ -167,14 +168,14 @@ h1 {
 .form-container textarea,
 .form-container input[type="file"] {
     width: 100%;
-    padding: 8px;
+    padding: 8px; /* All four sides */
     margin-bottom: 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
 }
 
 .form-container input[type="submit"] {
-    background-color: #4CAF50;
+    background: #007BFF;
     color: white;
     padding: 10px 15px;
     border: none;
@@ -184,12 +185,13 @@ h1 {
 }
 
 .form-container input[type="submit"]:hover {
-    background-color: #45a049;
+    background: #0056b3;
 }
 
 .form-container textarea {
     height: 100px;
 }
+/* end of form classes */
 
 /* style for pagination */
 .pagination {
