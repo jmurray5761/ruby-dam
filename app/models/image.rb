@@ -1,3 +1,6 @@
+require 'base64'
+require 'open-uri'
+
 class Image < ApplicationRecord
   has_one_attached :file
 
@@ -7,32 +10,45 @@ class Image < ApplicationRecord
 
   attr_accessor :generate_name_and_description
 
-  after_save :generate_name_and_description_if_needed
+  after_commit :generate_name_and_description_if_needed
 
   private
-
+  def enqueue_image_processing
+    ImageProcessingJob.perform_later(self.id) if generate_name_and_description && file.attached?
+  end
   def generate_name_and_description_if_needed
     return unless generate_name_and_description && file.attached? && name.blank? && description.blank?
 
-    file_url = Rails.application.routes.url_helpers.rails_blob_url(file, only_path: true)
-
+    encoded_image = encode_image(file)
     client = OpenAI::Client.new do |config|
       config.request :retry, max: 2, interval: 0.05, backoff_factor: 2
     end
 
     message = {
-      "content": "Please generate a name and a description for the image file. The name should be a concise title, up to six words separated by a single space, that accurately describes the content of the image. The name should not contain any quotes. Additionally, create a detailed and descriptive long description that can be used by a screen reader to help a visually impaired user understand the image. Ensure the description is thorough and covers the key elements and context of the image. Image file: #{file_url}",
-      "role": 'user'
+      "model": "gpt-4o",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "What’s in this image?"
+            },
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "data:image/jpeg;base64,#{encoded_image}"
+              }
+            }
+          ]
+        }
+      ],
+      "max_tokens": 300,
+      "temperature": 0.5
     }
 
     begin
-      response = client.chat(
-        parameters: {
-          model: 'gpt-4',
-          messages: [message],
-          temperature: 0.5
-        }
-      )
+      response = client.chat(parameters: message)
 
       if response['choices'].present?
         content = response['choices'].first['message']['content']
@@ -50,6 +66,14 @@ class Image < ApplicationRecord
       Rails.logger.error("Unexpected error: #{e.message}")
       errors.add(:base, "Unexpected error occurred: #{e.message}")
       raise ActiveRecord::Rollback
+    end
+  end
+
+  def encode_image(attachment)
+    if attachment.attached?
+      Base64.strict_encode64(attachment.download)
+    else
+      ""
     end
   end
 
