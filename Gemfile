@@ -74,3 +74,10 @@ gem 'image_processing', '~> 1.2'
 
 # add validations for uploads and upload sizes
 gem 'active_storage_validations'
+
+# openai gem
+gem 'ruby-openai'
+
+# faraday gem files
+gem 'faraday'
+gem 'faraday-retry'

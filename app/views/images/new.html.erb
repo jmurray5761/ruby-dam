@@ -5,12 +5,17 @@
 <%= form_with model: @image, local: true, html: { multipart: true, class: "form-container" } do |form| %>
   <div>
     <%= form.label :name %>
-    <%= form.text_field :name, required: true %>
+    <%= form.text_field :name %>
   </div>
 
   <div>
     <%= form.label :description %>
-    <%= form.text_area :description, required: true %>
+    <%= form.text_area :description %>
+  </div>
+
+  <div>
+    <%= form.label :generate_name_and_description, 'Generate name and description' %>
+    <%= form.check_box :generate_name_and_description %>
   </div>
 
   <div>
@@ -28,5 +33,4 @@
       </ul>
     </div>
   <% end %>
-
 <% end %>

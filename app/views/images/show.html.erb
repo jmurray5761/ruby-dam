@@ -13,13 +13,20 @@
     </p>
     <%= @image.name %>
 
-    <p class="bold label-bold">
+    <p>
       Long Description:
     </p>
-    <span data-description-toggle-target="shortDescription"><%= @image.description.truncate(100) %></span>
-    <span data-description-toggle-target="fullDescription" style="display: none;"><%= @image.description %></span>
-    <a href="#" data-action="description-toggle#toggle" data-description-toggle-target="toggleLink">Show More</a>
-
+    <% if @image.description.present? %>
+  <span data-description-toggle-target="shortDescription">
+    <%= @image.description.truncate(100) %>
+  </span>
+      <span data-description-toggle-target="fullDescription" style="display: none;">
+    <%= @image.description %>
+  </span>
+      <a href="#" data-action="description-toggle#toggle" data-description-toggle-target="toggleLink">Show More</a>
+    <% else %>
+      <span>No description available.</span>
+    <% end %>
 
     <!-- Additional metadata about the image -->
     <p class="bold label-bold">

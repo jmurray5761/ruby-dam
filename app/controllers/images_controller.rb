@@ -2,7 +2,7 @@ class ImagesController < ApplicationController
   include Pagy::Backend
 
   def index
-    @pagy, @images = pagy(Image.all, items: 20)
+    @pagy, @images = pagy(Image.order(created_at: :desc), items: 20)
   end
 
   def show
@@ -15,10 +15,25 @@ class ImagesController < ApplicationController
 
   def create
     @image = Image.new(image_params)
-    if @image.save
-      redirect_to @image, notice: 'Image was successfully created.'
+
+    if params[:image][:generate_name_and_description] == '1'
+      # Allow name and description to be blank
+      @image.name = nil
+      @image.description = nil
+
+      if @image.save
+        @image.generate_name_and_description
+        @image.save # Save again to persist the generated name and description
+        redirect_to @image, notice: 'Image was successfully uploaded and processed.'
+      else
+        render :new, status: :unprocessable_entity
+      end
     else
-      render :new, status: :unprocessable_entity
+      if @image.save
+        redirect_to @image, notice: 'Image was successfully created.'
+      else
+        render :new, status: :unprocessable_entity
+      end
     end
   end
 
@@ -34,6 +49,7 @@ class ImagesController < ApplicationController
       render :edit, status: :unprocessable_entity
     end
   end
+
   def destroy
     @image = Image.find(params[:id])
     @image.destroy
@@ -43,6 +59,6 @@ class ImagesController < ApplicationController
   private
 
   def image_params
-    params.require(:image).permit(:name, :description, :file)
+    params.require(:image).permit(:name, :description, :file, :generate_name_and_description)
   end
 end
