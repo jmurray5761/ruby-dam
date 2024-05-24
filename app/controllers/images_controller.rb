@@ -51,10 +51,22 @@ class ImagesController < ApplicationController
   end
 
   def destroy
-    @image = Image.find(params[:id])
-    @image.destroy
+    @image = Image.find_by(id: params[:id])
+    if @image
+      # Destroys the image along with any associated attachments.
+      @image.destroy
+      if @image.destroyed?
+        flash[:notice] = "Image and associated files deleted successfully."
+      else
+        flash[:error] = "Failed to delete the image."
+      end
+    else
+      flash[:alert] = "Image not found."
+    end
+
     redirect_to root_path, status: :see_other
   end
+
 
   private
 

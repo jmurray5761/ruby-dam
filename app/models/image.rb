@@ -1,6 +1,3 @@
-require 'base64'
-require 'open-uri'
-
 class Image < ApplicationRecord
   has_one_attached :file
 
@@ -32,7 +29,7 @@ class Image < ApplicationRecord
           "content": [
             {
               "type": "text",
-              "text": "What’s in this image?"
+              "text": "What's a four word name that summarizes the image contents?  What’s in this image?"
             },
             {
               "type": "image_url",
@@ -44,7 +41,7 @@ class Image < ApplicationRecord
         }
       ],
       "max_tokens": 300,
-      "temperature": 0.5
+      "temperature": 0.1
     }
 
     begin
@@ -78,7 +75,9 @@ class Image < ApplicationRecord
   end
 
   def parse_generated_content(content)
-    name, description = content.split("\n", 2).map { |line| line.split(": ", 2).last }
+    lines = content.split("\n", 2)
+    name = lines[0].split(": ", 2).last.strip.gsub(/\A"|"\Z|\.\Z/, '')
+    description = lines[1].split(": ", 2).last.strip if lines.length > 1
     [name, description]
   end
 end
