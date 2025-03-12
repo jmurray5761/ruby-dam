@@ -5,6 +5,9 @@ ruby "3.3.0"
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 7.1.3", ">= 7.1.3.2"
 
+# Use dotenv for environment variables
+gem 'dotenv-rails', groups: [:development, :test]
+
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
 gem "sprockets-rails"
 
@@ -42,7 +45,10 @@ gem "tzinfo-data", platforms: %i[ windows jruby ]
 gem "bootsnap", require: false
 
 # Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
-# gem "image_processing", "~> 1.2"
+gem "image_processing", "~> 1.2"
+
+# Image processing
+gem "mini_magick", "~> 4.12"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
@@ -64,13 +70,13 @@ group :test do
   # Use system testing [https://guides.rubyonrails.org/testing.html#system-testing]
   gem "capybara"
   gem "selenium-webdriver"
+  
+  # Add mocha for mocking in tests
+  gem "mocha"
 end
 
 # add pagy for infininte scrolling
 gem 'pagy'
-
-# add image processing
-gem 'image_processing', '~> 1.2'
 
 # add validations for uploads and upload sizes
 gem 'active_storage_validations'

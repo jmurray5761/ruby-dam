@@ -14,26 +14,15 @@ class ImagesController < ApplicationController
   end
 
   def create
+    Rails.logger.info("Checkbox value: #{params[:image][:generate_name_and_description]}")
     @image = Image.new(image_params)
+    @image.generate_name_and_description = params[:image][:generate_name_and_description] == '1'
+    Rails.logger.info("generate_name_and_description set to: #{@image.generate_name_and_description}")
 
-    if params[:image][:generate_name_and_description] == '1'
-      # Allow name and description to be blank
-      @image.name = nil
-      @image.description = nil
-
-      if @image.save
-        @image.generate_name_and_description
-        @image.save # Save again to persist the generated name and description
-        redirect_to @image, notice: 'Image was successfully uploaded and processed.'
-      else
-        render :new, status: :unprocessable_entity
-      end
+    if @image.save
+      redirect_to @image, notice: 'Image was successfully uploaded and processed.'
     else
-      if @image.save
-        redirect_to @image, notice: 'Image was successfully created.'
-      else
-        render :new, status: :unprocessable_entity
-      end
+      render :new, status: :unprocessable_entity
     end
   end
 
@@ -71,6 +60,6 @@ class ImagesController < ApplicationController
   private
 
   def image_params
-    params.require(:image).permit(:name, :description, :file, :generate_name_and_description)
+    params.require(:image).permit(:name, :description, :file)
   end
 end

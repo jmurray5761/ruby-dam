@@ -1,9 +1,13 @@
 # Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
 
 one:
-  name: MyString
-  description: MyText
+  name: Test Image One
+  description: This is a test image
+  created_at: <%= Time.current %>
+  updated_at: <%= Time.current %>
 
 two:
-  name: MyString
-  description: MyText
+  name: Test Image Two
+  description: This is another test image
+  created_at: <%= Time.current %>
+  updated_at: <%= Time.current %>
