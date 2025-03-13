@@ -19,8 +19,8 @@
   </div>
 
   <div>
-    <%= form.file_field :file, multiple: false, direct_upload: true, required: true %>
-    <%= form.submit "Upload", class: 'link-button' %>
+    <%= form.file_field :file, multiple: false, direct_upload: false, required: true %>
+    <%= form.submit "Upload", class: 'link-button', data: { disable_with: 'Uploading...' } %>
   </div>
 
   <% if @image.errors.any? %>

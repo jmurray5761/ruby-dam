@@ -93,3 +93,6 @@ gem 'ruby-openai'
 # faraday gem files
 gem 'faraday'
 gem 'faraday-retry'
+
+# Performance monitoring
+gem "bullet"

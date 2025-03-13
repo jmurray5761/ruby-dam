@@ -62,6 +62,9 @@ class Image < ApplicationRecord
     return if Rails.env.test? # Skip validation in test environment
 
     begin
+      # Wait for the blob to be available
+      return unless file.blob.present?
+
       # Analyze the blob to get dimensions
       analyzer = ActiveStorage::Analyzer::ImageAnalyzer::ImageMagick.new(file.blob)
       metadata = analyzer.metadata
@@ -77,6 +80,9 @@ class Image < ApplicationRecord
       if width < 200 || height < 200
         errors.add(:file, 'dimensions must be at least 200x200 pixels')
       end
+    rescue ActiveStorage::FileNotFoundError => e
+      Rails.logger.warn("File not found during dimension validation: #{e.message}")
+      # Don't add an error here as the file might not be fully uploaded yet
     rescue StandardError => e
       Rails.logger.error("Error checking dimensions: #{e.message}")
       Rails.logger.error(e.backtrace.join("\n"))

@@ -9,7 +9,8 @@
           <% if image.file.attached? %>
             <!-- Image wrapped in link to show image page -->
             <%= link_to image_path(image) do %>
-              <%= image_tag(image.file.variant(resize_to_limit: [200, 150]).processed, class: 'image') %>
+              <% variant = image.file.variant(resize_to_limit: [200, 150]).processed %>
+              <%= image_tag(variant, class: 'image') %>
             <% end %>
             <!-- Display the image name -->
             <h3 class="image-name"><%= image.name %></h3> <!-- Assuming 'name' is the attribute -->

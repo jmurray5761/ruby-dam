@@ -17,6 +17,15 @@ Rails.application.configure do
   # Enable server timing
   config.server_timing = true
 
+  # Configure Bullet for N+1 query detection
+  config.after_initialize do
+    Bullet.enable = true
+    Bullet.alert = true
+    Bullet.bullet_logger = true
+    Bullet.console = true
+    Bullet.rails_logger = true
+  end
+
   # Enable/disable caching. By default caching is disabled.
   # Run rails dev:cache to toggle caching.
   if Rails.root.join("tmp/caching-dev.txt").exist?
