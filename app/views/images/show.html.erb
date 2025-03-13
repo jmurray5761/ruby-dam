@@ -53,5 +53,5 @@
 
 <ul class="actions">
   <%= link_to "Edit", edit_image_path(@image), class: 'link-button' %>
-  <%= link_to "Destroy", image_path(@image), method: :delete, data: { confirm: "Are you sure?" }, class: 'link-button' %>
+  <%= link_to "Destroy", image_path(@image), data: { turbo_method: :delete, turbo_confirm: "Are you sure?" }, class: 'link-button' %>
 </ul>
