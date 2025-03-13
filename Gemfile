@@ -73,6 +73,12 @@ group :test do
   
   # Add mocha for mocking in tests
   gem "mocha"
+
+  # RSpec for testing
+  gem 'rspec-rails'
+  gem 'factory_bot_rails'
+  gem 'faker'
+  gem 'database_cleaner-active_record'
 end
 
 # add pagy for infininte scrolling

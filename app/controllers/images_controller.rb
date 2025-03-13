@@ -22,7 +22,7 @@ class ImagesController < ApplicationController
     if @image.save
       redirect_to @image, notice: 'Image was successfully uploaded and processed.'
     else
-      render :new, status: :unprocessable_entity
+      render :new
     end
   end
 
@@ -35,7 +35,7 @@ class ImagesController < ApplicationController
     if @image.update(image_params)
       redirect_to @image
     else
-      render :edit, status: :unprocessable_entity
+      render :edit
     end
   end
 
@@ -53,9 +53,8 @@ class ImagesController < ApplicationController
       flash[:alert] = "Image not found."
     end
 
-    redirect_to root_path, status: :see_other
+    redirect_to images_url, status: :see_other
   end
-
 
   private
 

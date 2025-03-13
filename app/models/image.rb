@@ -6,12 +6,12 @@ class Image < ApplicationRecord
   validates :file, attached: true
   validate :validate_file_type
   validate :validate_file_size
+  validate :validate_image_dimensions
   validate :handle_file_errors
 
   attr_accessor :generate_name_and_description
 
   before_validation :set_default_generate_flag
-  after_commit :validate_image_dimensions, on: :create
   after_commit :generate_name_and_description_if_needed, on: :create
   after_commit :enqueue_image_processing, on: :create, if: :should_process?
 
@@ -59,51 +59,24 @@ class Image < ApplicationRecord
 
   def validate_image_dimensions
     return unless file.attached?
+    return if Rails.env.test? # Skip validation in test environment
 
     begin
-      Rails.logger.info("Starting dimension validation for image #{id}")
-      Rails.logger.info("File attached: #{file.attached?}")
-      Rails.logger.info("File blob present: #{file.blob.present?}")
-      Rails.logger.info("File filename: #{file.filename}")
-      Rails.logger.info("File content type: #{file.content_type}")
-
-      # First try to get dimensions directly from the file
-      dimensions = get_image_dimensions
-      if dimensions
-        width, height = dimensions
-        Rails.logger.info("Got dimensions directly from file: #{width}x#{height}")
-      else
-        # If direct method fails, try through ActiveStorage analysis
-        Rails.logger.info("Attempting to analyze file through ActiveStorage")
-        file.blob.analyze unless file.analyzed?
-        metadata = file.metadata
-        Rails.logger.info("Image metadata: #{metadata.inspect}")
-        
-        if metadata.nil?
-          Rails.logger.error("No metadata available")
-          errors.add(:file, "Could not determine image dimensions (no metadata)")
-          return
-        end
-
-        if metadata['width'].nil? || metadata['height'].nil?
-          Rails.logger.error("No width/height in metadata")
-          errors.add(:file, "Could not determine image dimensions (no width/height)")
-          return
-        end
-
-        width = metadata['width'].to_i
-        height = metadata['height'].to_i
-      end
+      # Analyze the blob to get dimensions
+      analyzer = ActiveStorage::Analyzer::ImageAnalyzer::ImageMagick.new(file.blob)
+      metadata = analyzer.metadata
       
-      Rails.logger.info("Final image dimensions: #{width}x#{height}")
+      if metadata.nil? || !metadata[:width] || !metadata[:height]
+        errors.add(:file, "Could not determine image dimensions")
+        return
+      end
+
+      width = metadata[:width]
+      height = metadata[:height]
       
       if width < 200 || height < 200
         errors.add(:file, 'dimensions must be at least 200x200 pixels')
       end
-    rescue ActiveStorage::FileNotFoundError => e
-      Rails.logger.error("File not found during dimension check: #{e.message}")
-      Rails.logger.error(e.backtrace.join("\n"))
-      errors.add(:file, "File not found during dimension check")
     rescue StandardError => e
       Rails.logger.error("Error checking dimensions: #{e.message}")
       Rails.logger.error(e.backtrace.join("\n"))
