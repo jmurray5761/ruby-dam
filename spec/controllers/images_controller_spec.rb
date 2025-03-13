@@ -62,9 +62,9 @@ RSpec.describe ImagesController, type: :controller do
     end
 
     context 'with invalid params' do
-      it 'returns a success response (i.e. to display the new template)' do
+      it 'returns an unprocessable entity status' do
         post :create, params: { image: invalid_attributes }
-        expect(response).to be_successful
+        expect(response).to have_http_status(:unprocessable_entity)
       end
     end
   end

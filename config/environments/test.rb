@@ -1,6 +1,4 @@
 require "active_support/core_ext/integer/time"
-require "test_helper"
-require "rails/test_help"
 
 # The test environment is used exclusively to run your application's
 # test suite. You never need to work with it otherwise. Remember that
@@ -67,12 +65,4 @@ Rails.application.configure do
   config.after_initialize do
     Bullet.enable = false
   end
-end
-
-class ActiveSupport::TestCase
-  # Run tests in parallel with specified workers
-  parallelize(workers: :number_of_processors)
-
-  # Setup all fixtures in test/fixtures/*.yml for all tests in alphabetical order.
-  fixtures :all
 end
