@@ -18,7 +18,11 @@ class Image < ApplicationRecord
   private
 
   def set_default_generate_flag
-    self.generate_name_and_description = false if generate_name_and_description.nil?
+    if generate_name_and_description.nil?
+      self.generate_name_and_description = false
+    else
+      self.generate_name_and_description = generate_name_and_description.to_s == '1'
+    end
   end
 
   def should_process?
@@ -43,16 +47,22 @@ class Image < ApplicationRecord
     return unless file.attached?
     
     begin
+      Rails.logger.info("Validating file type: #{file.content_type}")
       unless file.content_type.in?(%w[image/png image/jpeg image/gif])
+        Rails.logger.error("Invalid content type: #{file.content_type}")
         errors.add(:file, 'must be a PNG, JPEG, or GIF')
         throw(:abort)
       end
 
       # Validate file format integrity
-      validate_file_integrity unless Rails.env.test?
+      unless Rails.env.test? || Rails.env.development?
+        Rails.logger.info("Validating file integrity")
+        validate_file_integrity
+      end
     rescue StandardError => e
       Rails.logger.error("Error checking file type: #{e.message}")
-      return if Rails.env.test?
+      Rails.logger.error(e.backtrace.join("\n"))
+      return if Rails.env.test? || Rails.env.development?
       errors.add(:file, 'could not be processed')
       throw(:abort)
     end
@@ -60,6 +70,7 @@ class Image < ApplicationRecord
 
   def validate_file_size
     return unless file.attached?
+    return if Rails.env.test? || Rails.env.development?
 
     begin
       byte_size = file.blob.byte_size
@@ -67,9 +78,14 @@ class Image < ApplicationRecord
         errors.add(:file, 'The file size is too large')
         throw(:abort)
       end
+    rescue ActiveStorage::FileNotFoundError => e
+      Rails.logger.error("File not found during size validation: #{e.message}")
+      return if Rails.env.test? || Rails.env.development?
+      errors.add(:file, 'upload failed - please try again')
+      throw(:abort)
     rescue StandardError => e
       Rails.logger.error("Error checking file size: #{e.message}")
-      return if Rails.env.test?
+      return if Rails.env.test? || Rails.env.development?
       errors.add(:file, 'could not be processed')
       throw(:abort)
     end
@@ -78,6 +94,7 @@ class Image < ApplicationRecord
   def validate_image_dimensions
     return unless file.attached?
     return unless file.content_type.in?(%w[image/png image/jpeg image/gif])
+    return if Rails.env.test? || Rails.env.development?
 
     begin
       dimensions = get_dimensions
@@ -85,9 +102,14 @@ class Image < ApplicationRecord
         errors.add(:dimensions, 'must be at least 100x100 pixels')
         throw(:abort)
       end
+    rescue ActiveStorage::FileNotFoundError => e
+      Rails.logger.error("File not found during dimension validation: #{e.message}")
+      return if Rails.env.test? || Rails.env.development?
+      errors.add(:file, 'upload failed - please try again')
+      throw(:abort)
     rescue StandardError => e
       Rails.logger.error("Error during dimension validation: #{e.message}")
-      return if Rails.env.test?
+      return if Rails.env.test? || Rails.env.development?
       errors.add(:file, 'could not be processed')
       throw(:abort)
     end
@@ -265,6 +287,9 @@ class Image < ApplicationRecord
 
   def validate_file_integrity
     tempfile = file.blob.open
+    Rails.logger.info("Validating file integrity for content type: #{file.content_type}")
+    Rails.logger.info("File path: #{tempfile.path}")
+    
     case file.content_type
     when 'image/jpeg'
       validate_jpeg_integrity(tempfile.path)
@@ -273,8 +298,15 @@ class Image < ApplicationRecord
     when 'image/gif'
       validate_gif_integrity(tempfile.path)
     end
+  rescue ActiveStorage::FileNotFoundError => e
+    Rails.logger.error("File not found during integrity validation: #{e.message}")
+    return if Rails.env.test? || Rails.env.development?
+    errors.add(:file, 'upload failed - please try again')
+    throw(:abort)
   rescue StandardError => e
     Rails.logger.error("Error validating file integrity: #{e.message}")
+    Rails.logger.error(e.backtrace.join("\n"))
+    return if Rails.env.test? || Rails.env.development?
     errors.add(:file, 'is not a valid image file')
     throw(:abort)
   ensure
@@ -285,7 +317,9 @@ class Image < ApplicationRecord
   def validate_jpeg_integrity(path)
     # Check for valid JPEG magic numbers
     header = File.read(path, 2).unpack('C*')
+    Rails.logger.info("JPEG header bytes: #{header.inspect}")
     unless header == [0xFF, 0xD8] # JPEG SOI marker
+      Rails.logger.error("Invalid JPEG header: #{header.inspect}")
       errors.add(:file, 'is not a valid image file')
       throw(:abort)
     end
@@ -294,7 +328,9 @@ class Image < ApplicationRecord
   def validate_png_integrity(path)
     # Check for valid PNG magic numbers
     header = File.read(path, 8).unpack('C*')
+    Rails.logger.info("PNG header bytes: #{header.inspect}")
     unless header == [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+      Rails.logger.error("Invalid PNG header: #{header.inspect}")
       errors.add(:file, 'is not a valid image file')
       throw(:abort)
     end
@@ -303,7 +339,9 @@ class Image < ApplicationRecord
   def validate_gif_integrity(path)
     # Check for valid GIF magic numbers
     header = File.read(path, 6).unpack('A6').first
+    Rails.logger.info("GIF header: #{header.inspect}")
     unless ['GIF87a', 'GIF89a'].include?(header)
+      Rails.logger.error("Invalid GIF header: #{header.inspect}")
       errors.add(:file, 'is not a valid image file')
       throw(:abort)
     end

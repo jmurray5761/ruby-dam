@@ -29,10 +29,13 @@ class ImagesController < ApplicationController
 
   def create
     Rails.logger.info("Starting image creation")
-    Rails.logger.info("Params: #{params.inspect}")
+    Rails.logger.info("Raw params: #{params.inspect}")
+    Rails.logger.info("Image params: #{params[:image].inspect}")
+    Rails.logger.info("Generate flag from params: #{params[:image][:generate_name_and_description]}")
     
     @image = Image.new(image_params)
-    @image.generate_name_and_description = params[:image][:generate_name_and_description] == '1'
+    Rails.logger.info("Image attributes after initialization: #{@image.attributes.inspect}")
+    Rails.logger.info("Generate flag after initialization: #{@image.generate_name_and_description}")
 
     begin
       if @image.save
@@ -107,7 +110,7 @@ class ImagesController < ApplicationController
   private
 
   def image_params
-    params.require(:image).permit(:name, :description, :file)
+    params.require(:image).permit(:name, :description, :file, :generate_name_and_description)
   end
 
   def handle_validation_error
