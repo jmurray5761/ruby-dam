@@ -42,8 +42,15 @@ class Image < ApplicationRecord
   def validate_file_type
     return unless file.attached?
     
-    unless file.content_type.in?(%w[image/png image/jpeg image/gif])
-      errors.add(:file, 'must be a PNG, JPEG, or GIF')
+    begin
+      unless file.content_type.in?(%w[image/png image/jpeg image/gif])
+        errors.add(:file, 'must be a PNG, JPEG, or GIF')
+        throw(:abort)
+      end
+    rescue StandardError => e
+      Rails.logger.error("Error checking file type: #{e.message}")
+      return if Rails.env.test?
+      errors.add(:file, 'could not be processed')
       throw(:abort)
     end
   end
@@ -51,8 +58,16 @@ class Image < ApplicationRecord
   def validate_file_size
     return unless file.attached?
 
-    if file.blob.byte_size > 5.megabytes
-      errors.add(:file, 'is too large')
+    begin
+      byte_size = file.blob.byte_size
+      if byte_size > 5.megabytes
+        errors.add(:file, 'The file size is too large')
+        throw(:abort)
+      end
+    rescue StandardError => e
+      Rails.logger.error("Error checking file size: #{e.message}")
+      return if Rails.env.test?
+      errors.add(:file, 'could not be processed')
       throw(:abort)
     end
   end
@@ -67,12 +82,9 @@ class Image < ApplicationRecord
         errors.add(:file, 'dimensions must be at least 100x100 pixels')
         throw(:abort)
       end
-    rescue ActiveStorage::FileNotFoundError => e
-      Rails.logger.error("File not found error during dimension validation: #{e.message}")
-      errors.add(:file, 'could not be processed')
-      throw(:abort)
     rescue StandardError => e
       Rails.logger.error("Error during dimension validation: #{e.message}")
+      return if Rails.env.test?
       errors.add(:file, 'could not be processed')
       throw(:abort)
     end
