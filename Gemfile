@@ -52,7 +52,19 @@ gem "mini_magick", "~> 4.12"
 
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
-  gem "debug", platforms: %i[ mri windows ]
+  gem "debug", "~> 1.9.1", platforms: %i[ mri mingw x64_mingw ]
+
+  # Testing gems
+  gem "rspec-rails"
+  gem "factory_bot_rails"
+  gem "faker"
+  gem "rails-controller-testing"
+
+  # N+1 query detection
+  gem "bullet"
+
+  # Use dotenv for environment variables
+  gem "dotenv-rails"
 end
 
 group :development do
@@ -64,6 +76,9 @@ group :development do
 
   # Speed up commands on slow machines / big apps [https://github.com/rails/spring]
   # gem "spring"
+
+  # Ruby LSP for VS Code
+  gem "ruby-lsp", require: false
 end
 
 group :test do
@@ -93,6 +108,3 @@ gem 'ruby-openai'
 # faraday gem files
 gem 'faraday'
 gem 'faraday-retry'
-
-# Performance monitoring
-gem "bullet"

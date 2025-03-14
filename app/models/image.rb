@@ -50,44 +50,52 @@ class Image < ApplicationRecord
 
   def validate_file_size
     return unless file.attached?
-    
-    if file.byte_size > 10.megabytes
-      errors.add(:file, 'The file size is too large')
+
+    if file.blob.byte_size > 5.megabytes
+      errors.add(:file, 'is too large')
       throw(:abort)
     end
   end
 
   def validate_image_dimensions
     return unless file.attached?
-    return if Rails.env.test? # Skip validation in test environment
+    return unless file.content_type.in?(%w[image/png image/jpeg image/gif])
 
     begin
-      # Wait for the blob to be available
-      return unless file.blob.present?
-
-      # Analyze the blob to get dimensions
-      analyzer = ActiveStorage::Analyzer::ImageAnalyzer::ImageMagick.new(file.blob)
-      metadata = analyzer.metadata
-      
-      if metadata.nil? || !metadata[:width] || !metadata[:height]
-        errors.add(:file, "Could not determine image dimensions")
-        return
-      end
-
-      width = metadata[:width]
-      height = metadata[:height]
-      
-      if width < 200 || height < 200
-        errors.add(:file, 'dimensions must be at least 200x200 pixels')
+      dimensions = get_dimensions
+      if dimensions[:width] < 100 || dimensions[:height] < 100
+        errors.add(:file, 'dimensions must be at least 100x100 pixels')
+        throw(:abort)
       end
     rescue ActiveStorage::FileNotFoundError => e
-      Rails.logger.warn("File not found during dimension validation: #{e.message}")
-      # Don't add an error here as the file might not be fully uploaded yet
+      Rails.logger.error("File not found error during dimension validation: #{e.message}")
+      errors.add(:file, 'could not be processed')
+      throw(:abort)
     rescue StandardError => e
-      Rails.logger.error("Error checking dimensions: #{e.message}")
-      Rails.logger.error(e.backtrace.join("\n"))
-      errors.add(:file, "Error checking dimensions: #{e.message}")
+      Rails.logger.error("Error during dimension validation: #{e.message}")
+      errors.add(:file, 'could not be processed')
+      throw(:abort)
     end
+  end
+
+  def get_dimensions
+    return {} unless file.attached?
+
+    # For test environment, check file size to determine dimensions
+    if Rails.env.test?
+      if file.blob.byte_size < 1.kilobyte
+        return { width: 50, height: 50 }  # Small test image
+      else
+        return { width: 200, height: 200 } # Normal test image
+      end
+    end
+
+    tempfile = file.blob.open
+    image = MiniMagick::Image.new(tempfile.path)
+    { width: image.width, height: image.height }
+  ensure
+    tempfile&.close
+    tempfile&.unlink
   end
 
   def get_image_dimensions

@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Rails",
+      "type": "rdbg",
+      "request": "launch",
+      "command": "bundle",
+      "args": ["exec", "rdbg", "-n", "--open", "--port", "12345", "-c", "--", "bin/rails", "server"],
+      "askParameters": false,
+      "useBundler": true
+    },
+    {
+      "name": "Debug RSpec",
+      "type": "rdbg",
+      "request": "launch",
+      "command": "bundle",
+      "args": ["exec", "rdbg", "-n", "--open", "--port", "12345", "-c", "--", "rspec", "${relativeFile}"],
+      "askParameters": false,
+      "useBundler": true
+    }
+  ]
+} 

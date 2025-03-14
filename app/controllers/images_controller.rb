@@ -24,17 +24,22 @@ class ImagesController < ApplicationController
     Rails.logger.info("File attached?: #{@image.file.attached?}")
     Rails.logger.info("Generate name and description: #{@image.generate_name_and_description}")
 
-    begin
-      if @image.save
-        Rails.logger.info("Image saved successfully")
-        redirect_to @image, notice: 'Image was successfully uploaded and processed.'
-      else
-        Rails.logger.error("Failed to save image: #{@image.errors.full_messages}")
+    if @image.valid?
+      begin
+        if @image.save
+          Rails.logger.info("Image saved successfully")
+          redirect_to @image, notice: 'Image was successfully uploaded and processed.'
+        else
+          Rails.logger.error("Failed to save image: #{@image.errors.full_messages}")
+          render :new, status: :unprocessable_entity
+        end
+      rescue ActiveStorage::FileNotFoundError => e
+        Rails.logger.error("File upload error: #{e.message}")
+        @image.errors.add(:file, "File upload failed. Please try again.")
         render :new, status: :unprocessable_entity
       end
-    rescue ActiveStorage::FileNotFoundError => e
-      Rails.logger.error("File upload error: #{e.message}")
-      @image.errors.add(:file, "File upload failed. Please try again.")
+    else
+      Rails.logger.error("Validation failed: #{@image.errors.full_messages}")
       render :new, status: :unprocessable_entity
     end
   end
