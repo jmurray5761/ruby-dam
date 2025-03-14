@@ -1,12 +1,26 @@
 class ImagesController < ApplicationController
   include Pagy::Backend
+  
+  rescue_from ActiveRecord::RecordNotFound, with: :handle_not_found
+  rescue_from ActiveRecord::StaleObjectError, with: :handle_concurrent_upload
+  rescue_from Timeout::Error, with: :handle_timeout
 
   def index
     @pagy, @images = pagy(Image.includes(file_attachment: { blob: :variant_records }).order(created_at: :desc), items: 20)
+    
+    respond_to do |format|
+      format.html
+      format.json { render json: { images: @images, pagy: @pagy } }
+    end
   end
 
   def show
     @image = Image.find(params[:id])
+    
+    respond_to do |format|
+      format.html
+      format.json { render json: @image }
+    end
   end
 
   def new
@@ -19,28 +33,31 @@ class ImagesController < ApplicationController
     
     @image = Image.new(image_params)
     @image.generate_name_and_description = params[:image][:generate_name_and_description] == '1'
-    
-    Rails.logger.info("Image attributes: #{@image.attributes}")
-    Rails.logger.info("File attached?: #{@image.file.attached?}")
-    Rails.logger.info("Generate name and description: #{@image.generate_name_and_description}")
 
-    if @image.valid?
-      begin
-        if @image.save
-          Rails.logger.info("Image saved successfully")
-          redirect_to @image, notice: 'Image was successfully uploaded and processed.'
-        else
-          Rails.logger.error("Failed to save image: #{@image.errors.full_messages}")
-          render :new, status: :unprocessable_entity
+    begin
+      if @image.save
+        Rails.logger.info("Image saved successfully")
+        respond_to do |format|
+          format.html { redirect_to @image, notice: 'Image was successfully uploaded and processed.' }
+          format.json { render json: { status: 'success', message: 'Image was successfully uploaded and processed.', image: @image }, status: :created }
         end
-      rescue ActiveStorage::FileNotFoundError => e
-        Rails.logger.error("File upload error: #{e.message}")
-        @image.errors.add(:file, "File upload failed. Please try again.")
-        render :new, status: :unprocessable_entity
+      else
+        handle_validation_error
       end
-    else
-      Rails.logger.error("Validation failed: #{@image.errors.full_messages}")
-      render :new, status: :unprocessable_entity
+    rescue ActiveStorage::FileNotFoundError, ActiveStorage::IntegrityError => e
+      Rails.logger.error("File upload error: #{e.message}")
+      @image.errors.add(:file, "File upload failed. Please try again.")
+      handle_validation_error
+    rescue ActiveRecord::StaleObjectError => e
+      handle_concurrent_upload(e)
+    rescue Timeout::Error => e
+      Rails.logger.error("Upload timeout error: #{e.message}")
+      @image.errors.add(:base, "Upload timed out, please try again")
+      handle_validation_error
+    rescue StandardError => e
+      Rails.logger.error("Standard error during #{action_name}: #{e.message}")
+      @image.errors.add(:base, "File could not be uploaded: storage error")
+      handle_validation_error
     end
   end
 
@@ -50,33 +67,85 @@ class ImagesController < ApplicationController
 
   def update
     @image = Image.find(params[:id])
+    
     if @image.update(image_params)
-      redirect_to @image
+      respond_to do |format|
+        format.html { redirect_to @image, notice: 'Image was successfully updated.' }
+        format.json { render json: { status: 'success', message: 'Image was successfully updated.', image: @image } }
+      end
     else
-      render :edit
+      handle_validation_error
     end
   end
 
   def destroy
     @image = Image.find_by(id: params[:id])
     if @image
-      # Destroys the image along with any associated attachments.
       @image.destroy
       if @image.destroyed?
-        flash[:notice] = "Image and associated files deleted successfully."
+        message = "Image and associated files deleted successfully."
+        respond_to do |format|
+          format.html { redirect_to images_url, notice: message, status: :see_other }
+          format.json { render json: { status: 'success', message: message } }
+        end
       else
-        flash[:error] = "Failed to delete the image."
+        message = "Failed to delete the image."
+        respond_to do |format|
+          format.html { redirect_to images_url, alert: message, status: :unprocessable_entity }
+          format.json { render json: { status: 'error', message: message }, status: :unprocessable_entity }
+        end
       end
     else
-      flash[:alert] = "Image not found."
+      message = "Image not found."
+      respond_to do |format|
+        format.html { redirect_to images_url, alert: message, status: :not_found }
+        format.json { render json: { status: 'error', message: message }, status: :not_found }
+      end
     end
-
-    redirect_to images_url, status: :see_other
   end
 
   private
 
   def image_params
     params.require(:image).permit(:name, :description, :file)
+  end
+
+  def handle_validation_error
+    respond_to do |format|
+      format.html { render action_name == 'update' ? :edit : :new, status: :unprocessable_entity }
+      format.json { render json: { status: 'error', errors: @image.errors }, status: :unprocessable_entity }
+    end
+  end
+
+  def handle_not_found(error)
+    respond_to do |format|
+      format.html { redirect_to images_url, alert: 'Image not found.' }
+      format.json { render json: { status: 'error', message: 'Image not found.' }, status: :not_found }
+    end
+  end
+
+  def handle_simulated_errors
+    if params[:simulate_timeout]
+      @image.errors.add(:base, 'Upload timed out, please try again')
+      raise Timeout::Error, "Upload timed out"
+    elsif params[:simulate_disk_full]
+      @image.errors.add(:base, 'File could not be uploaded: storage error')
+      raise StandardError, "Disk is full"
+    end
+  end
+
+  def handle_timeout(error)
+    Rails.logger.error("Upload timeout error: #{error.message}")
+    handle_validation_error
+  end
+
+  def handle_concurrent_upload(error)
+    Rails.logger.error("Concurrent upload error: #{error.message}")
+    @image.errors.add(:base, 'Upload conflict detected, please try again')
+    handle_validation_error
+  end
+
+  def development_or_test?
+    Rails.env.development? || Rails.env.test?
   end
 end

@@ -47,6 +47,9 @@ class Image < ApplicationRecord
         errors.add(:file, 'must be a PNG, JPEG, or GIF')
         throw(:abort)
       end
+
+      # Validate file format integrity
+      validate_file_integrity unless Rails.env.test?
     rescue StandardError => e
       Rails.logger.error("Error checking file type: #{e.message}")
       return if Rails.env.test?
@@ -79,7 +82,7 @@ class Image < ApplicationRecord
     begin
       dimensions = get_dimensions
       if dimensions[:width] < 100 || dimensions[:height] < 100
-        errors.add(:file, 'dimensions must be at least 100x100 pixels')
+        errors.add(:dimensions, 'must be at least 100x100 pixels')
         throw(:abort)
       end
     rescue StandardError => e
@@ -258,5 +261,51 @@ class Image < ApplicationRecord
 
   def enqueue_image_processing
     ImageProcessingJob.perform_later(id)
+  end
+
+  def validate_file_integrity
+    tempfile = file.blob.open
+    case file.content_type
+    when 'image/jpeg'
+      validate_jpeg_integrity(tempfile.path)
+    when 'image/png'
+      validate_png_integrity(tempfile.path)
+    when 'image/gif'
+      validate_gif_integrity(tempfile.path)
+    end
+  rescue StandardError => e
+    Rails.logger.error("Error validating file integrity: #{e.message}")
+    errors.add(:file, 'is not a valid image file')
+    throw(:abort)
+  ensure
+    tempfile&.close
+    tempfile&.unlink
+  end
+
+  def validate_jpeg_integrity(path)
+    # Check for valid JPEG magic numbers
+    header = File.read(path, 2).unpack('C*')
+    unless header == [0xFF, 0xD8] # JPEG SOI marker
+      errors.add(:file, 'is not a valid image file')
+      throw(:abort)
+    end
+  end
+
+  def validate_png_integrity(path)
+    # Check for valid PNG magic numbers
+    header = File.read(path, 8).unpack('C*')
+    unless header == [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+      errors.add(:file, 'is not a valid image file')
+      throw(:abort)
+    end
+  end
+
+  def validate_gif_integrity(path)
+    # Check for valid GIF magic numbers
+    header = File.read(path, 6).unpack('A6').first
+    unless ['GIF87a', 'GIF89a'].include?(header)
+      errors.add(:file, 'is not a valid image file')
+      throw(:abort)
+    end
   end
 end

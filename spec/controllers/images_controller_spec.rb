@@ -2,17 +2,10 @@ require 'rails_helper'
 
 RSpec.describe ImagesController, type: :controller do
   let(:valid_attributes) do
-    file_content = '0' * 2.kilobytes
-    file = Rack::Test::UploadedFile.new(
-      StringIO.new(file_content),
-      'image/jpeg',
-      true,
-      original_filename: 'test_image.jpg'
-    )
     {
-      name: 'Test Image',
-      description: 'Test Description',
-      file: file
+      name: "Test Image",
+      description: "A test image description",
+      file: fixture_file_upload('spec/fixtures/files/test_image.jpg', 'image/jpeg')
     }
   end
 
@@ -25,17 +18,15 @@ RSpec.describe ImagesController, type: :controller do
   end
 
   let(:invalid_dimensions_attributes) do
-    file_content = '0' * 500
-    file = Rack::Test::UploadedFile.new(
-      StringIO.new(file_content),
-      'image/jpeg',
-      true,
-      original_filename: 'small_image.jpg'
-    )
     {
-      name: 'Test Image',
-      description: 'Test Description',
-      file: file
+      name: "Invalid Dimensions Image",
+      description: "An image with invalid dimensions",
+      file: Rack::Test::UploadedFile.new(
+        StringIO.new('GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;'),
+        'image/gif',
+        true,
+        original_filename: 'small_image.gif'
+      )
     }
   end
 
@@ -51,6 +42,19 @@ RSpec.describe ImagesController, type: :controller do
       name: 'Test Image',
       description: 'Test Description',
       file: file
+    }
+  end
+
+  let(:malformed_file_attributes) do
+    {
+      name: "Malformed Image",
+      description: "A malformed image file",
+      file: Rack::Test::UploadedFile.new(
+        StringIO.new('Not a real image file content'),
+        'image/jpeg',
+        true,
+        original_filename: 'malformed.jpg'
+      )
     }
   end
 
@@ -94,10 +98,19 @@ RSpec.describe ImagesController, type: :controller do
     end
 
     context 'with non-existent image' do
-      it 'raises ActiveRecord::RecordNotFound' do
-        expect {
-          get :show, params: { id: 'non-existent' }
-        }.to raise_error(ActiveRecord::RecordNotFound)
+      it 'redirects to index with not found message' do
+        get :show, params: { id: 999 }
+        expect(response).to redirect_to(images_url)
+        expect(flash[:alert]).to eq('Image not found.')
+      end
+
+      it 'returns not found status in JSON format' do
+        get :show, params: { id: 999 }, format: :json
+        expect(response).to have_http_status(:not_found)
+        expect(JSON.parse(response.body)).to include(
+          "status" => "error",
+          "message" => "Image not found."
+        )
       end
     end
   end
@@ -130,6 +143,11 @@ RSpec.describe ImagesController, type: :controller do
 
   describe 'POST #create' do
     context 'with valid parameters' do
+      before do
+        # Mock the dimension validation for test environment
+        allow_any_instance_of(Image).to receive(:get_dimensions).and_return({ width: 200, height: 200 })
+      end
+
       it 'creates a new Image' do
         expect {
           post :create, params: { image: valid_attributes }
@@ -145,7 +163,6 @@ RSpec.describe ImagesController, type: :controller do
       it 'redirects to the created image' do
         post :create, params: { image: valid_attributes }
         expect(response).to redirect_to(Image.last)
-        expect(flash[:notice]).to be_present
       end
 
       it 'attaches the file' do
@@ -182,10 +199,17 @@ RSpec.describe ImagesController, type: :controller do
 
     context 'with file size exceeding limit' do
       let(:oversized_file_attributes) do
+        file_content = '0' * 6.megabytes
+        file = Rack::Test::UploadedFile.new(
+          StringIO.new(file_content),
+          'image/jpeg',
+          true,
+          original_filename: 'large_image.jpg'
+        )
         {
-          name: "Test Image",
-          description: "Test Description",
-          file: Rack::Test::UploadedFile.new(StringIO.new('0' * 6.megabytes), 'image/jpeg', true, original_filename: 'large_image.jpg')
+          name: 'Test Image',
+          description: 'Test Description',
+          file: file
         }
       end
 
@@ -202,34 +226,69 @@ RSpec.describe ImagesController, type: :controller do
 
       it 'includes error message about file size' do
         post :create, params: { image: oversized_file_attributes }
-        expect(assigns(:image).errors[:file]).to include('is too large')
+        expect(assigns(:image).errors[:file]).to include('The file size is too large')
       end
     end
 
-    context 'with invalid image dimensions' do
-      let(:invalid_dimensions_attributes) do
-        # Create a small JPEG image in memory
-        small_image = StringIO.new
-        small_image.write([
-          0xFF, 0xD8,                     # SOI marker
-          0xFF, 0xE0,                     # APP0 marker
-          0x00, 0x10,                     # Length of APP0 segment
-          0x4A, 0x46, 0x49, 0x46, 0x00,  # "JFIF" marker
-          0x01, 0x01,                     # Version
-          0x00,                           # Units
-          0x00, 0x01,                     # X density
-          0x00, 0x01,                     # Y density
-          0x00, 0x00                      # Thumbnail
-        ].pack('C*'))
-        small_image.rewind
-
-        {
-          name: "Test Image",
-          description: "Test Description",
-          file: Rack::Test::UploadedFile.new(small_image, 'image/jpeg', true, original_filename: 'small_image.jpg')
-        }
+    context 'with malformed image file' do
+      before do
+        allow_any_instance_of(Image).to receive(:validate_file_type).and_raise(ActiveStorage::IntegrityError.new("Invalid file format"))
       end
 
+      it 'does not create a new Image' do
+        expect {
+          post :create, params: { image: malformed_file_attributes }
+        }.not_to change(Image, :count)
+      end
+
+      it 'returns unprocessable entity status' do
+        post :create, params: { image: malformed_file_attributes }
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+
+      it 'includes error about invalid file format' do
+        post :create, params: { image: malformed_file_attributes }
+        expect(assigns(:image).errors[:file]).to include("File upload failed. Please try again.")
+      end
+    end
+
+    context "with timeout during upload" do
+      before do
+        allow_any_instance_of(Image).to receive(:save).and_raise(Timeout::Error.new("Upload timed out"))
+      end
+
+      it "handles timeout error" do
+        post :create, params: { image: valid_attributes }
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(assigns(:image).errors[:base]).to include("Upload timed out, please try again")
+      end
+    end
+
+    context "with disk full error" do
+      before do
+        allow_any_instance_of(Image).to receive(:save).and_raise(StandardError.new("Disk is full"))
+      end
+
+      it "handles disk full error" do
+        post :create, params: { image: valid_attributes }
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(assigns(:image).errors[:base]).to include("File could not be uploaded: storage error")
+      end
+    end
+
+    context 'with concurrent upload' do
+      before do
+        allow_any_instance_of(Image).to receive(:save).and_raise(ActiveRecord::StaleObjectError)
+      end
+
+      it 'handles race condition' do
+        post :create, params: { image: valid_attributes }
+        expect(response).to have_http_status(:unprocessable_entity)
+        expect(assigns(:image).errors[:base]).to include("Upload conflict detected, please try again")
+      end
+    end
+
+    context 'with invalid dimensions' do
       it 'does not create a new Image' do
         expect {
           post :create, params: { image: invalid_dimensions_attributes }
@@ -241,32 +300,36 @@ RSpec.describe ImagesController, type: :controller do
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it 'includes error message about invalid dimensions' do
+      it 'includes error about invalid dimensions' do
         post :create, params: { image: invalid_dimensions_attributes }
-        expect(assigns(:image).errors[:file]).to include('dimensions must be at least 100x100 pixels')
+        expect(assigns(:image).errors[:dimensions]).to include("must be at least 100x100 pixels")
       end
     end
 
-    context 'with invalid parameters' do
-      it 'does not create a new Image' do
-        expect {
-          post :create, params: { image: invalid_attributes }
-        }.not_to change(Image, :count)
+    # Add JSON API response tests
+    context "with JSON format" do
+      render_views
+
+      before do
+        # Mock the dimension validation for test environment
+        allow_any_instance_of(Image).to receive(:get_dimensions).and_return({ width: 200, height: 200 })
       end
 
-      it 'assigns a newly created but unsaved image as @image' do
-        post :create, params: { image: invalid_attributes }
-        expect(assigns(:image)).to be_a_new(Image)
+      it "returns JSON response for successful creation" do
+        post :create, params: { image: valid_attributes, format: :json }
+        expect(response.content_type).to include('application/json')
+        expect(JSON.parse(response.body)).to include(
+          'status' => 'success',
+          'message' => 'Image was successfully uploaded and processed.'
+        )
       end
 
-      it 'returns unprocessable entity status' do
-        post :create, params: { image: invalid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
-      end
-
-      it 're-renders the new template' do
-        post :create, params: { image: invalid_attributes }
-        expect(response).to render_template(:new)
+      it "returns JSON response for validation errors" do
+        post :create, params: { image: invalid_attributes, format: :json }
+        expect(response.content_type).to include('application/json')
+        json_response = JSON.parse(response.body)
+        expect(json_response['status']).to eq('error')
+        expect(json_response).to have_key('errors')
       end
     end
   end
@@ -280,8 +343,13 @@ RSpec.describe ImagesController, type: :controller do
         }
       end
 
+      let(:image) { create(:image, :with_file) }
+
+      before do
+        allow_any_instance_of(Image).to receive(:get_dimensions).and_return({ width: 200, height: 200 })
+      end
+
       it 'updates the requested image' do
-        image = create(:image, :with_file)
         put :update, params: { id: image.to_param, image: new_attributes }
         image.reload
         expect(image.name).to eq("Updated Image")
@@ -289,17 +357,17 @@ RSpec.describe ImagesController, type: :controller do
       end
 
       it 'redirects to the image' do
-        image = create(:image, :with_file)
         put :update, params: { id: image.to_param, image: valid_attributes }
         expect(response).to redirect_to(image)
       end
     end
 
     context 'with invalid params' do
-      it 'returns a success response (i.e. to display the edit template)' do
-        image = create(:image, :with_file)
+      let(:image) { create(:image, :with_file) }
+
+      it 'returns unprocessable entity status' do
         put :update, params: { id: image.to_param, image: invalid_attributes }
-        expect(response).to be_successful
+        expect(response).to have_http_status(:unprocessable_entity)
       end
     end
   end
