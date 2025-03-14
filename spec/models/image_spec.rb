@@ -1,6 +1,12 @@
 require 'rails_helper'
 
 RSpec.describe Image, type: :model do
+  include ActiveJob::TestHelper
+
+  before do
+    ActiveJob::Base.queue_adapter = :test
+  end
+
   let(:image) do
     build(:image,
       name: "Test Image",
@@ -57,21 +63,20 @@ RSpec.describe Image, type: :model do
 
   describe 'callbacks' do
     it 'should enqueue image processing after create' do
-      image.generate_name_and_description = true
-      
-      expect {
-        image.save
-      }.to have_enqueued_job(ImageProcessingJob)
+      perform_enqueued_jobs do
+        image = create(:image, :with_file, generate_name_and_description: true)
+        Rails.logger.info("Image created with id: #{image.id}")
+        Rails.logger.info("File attached?: #{image.file.attached?}")
+        Rails.logger.info("generate_name_and_description: #{image.generate_name_and_description}")
+        Rails.logger.info("should_process? result: #{image.send(:should_process?)}")
+        expect(ImageProcessingJob).to have_been_performed.with(image.id)
+      end
     end
 
     it 'should not enqueue image processing when flag is false' do
-      image.generate_name_and_description = false
-      
-      perform_enqueued_jobs do
-        image.save
-      end
-      
-      expect(ImageProcessingJob).not_to have_been_enqueued
+      expect {
+        create(:image, :with_file, generate_name_and_description: false)
+      }.not_to have_enqueued_job(ImageProcessingJob)
     end
   end
 
