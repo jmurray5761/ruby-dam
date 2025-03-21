@@ -11,8 +11,8 @@ gem 'dotenv-rails', groups: [:development, :test]
 # The original asset pipeline for Rails [https://github.com/rails/sprockets-rails]
 gem "sprockets-rails"
 
-# Use sqlite3 as the database for Active Record
-gem "sqlite3", "~> 2.1"
+# Use PostgreSQL as the database for Active Record
+gem "pg"
 
 # Use the Puma web server [https://github.com/puma/puma]
 gem "puma", ">= 6.0"
@@ -50,6 +50,24 @@ gem "image_processing", "~> 1.12"
 # Image processing
 gem "mini_magick", "~> 4.12"
 
+# Background job processing
+gem "delayed_job_active_record"
+
+# Pagination
+gem 'pagy'
+
+# Active Storage validations
+gem 'active_storage_validations'
+
+# API integrations
+gem 'ruby-openai'
+gem 'faraday'
+gem 'faraday-retry'
+
+# Vector embeddings
+gem 'pgvector'
+gem 'neighbor'
+
 group :development, :test do
   # See https://guides.rubyonrails.org/debugging_rails_applications.html#debugging-with-the-debug-gem
   gem "debug", "~> 1.9.1", platforms: %i[ mri mingw x64_mingw ]
@@ -62,20 +80,11 @@ group :development, :test do
 
   # N+1 query detection
   gem "bullet"
-
-  # Use dotenv for environment variables
-  gem "dotenv-rails"
 end
 
 group :development do
   # Use console on exceptions pages [https://github.com/rails/web-console]
   gem "web-console"
-
-  # Add speed badges [https://github.com/MiniProfiler/rack-mini-profiler]
-  # gem "rack-mini-profiler"
-
-  # Speed up commands on slow machines / big apps [https://github.com/rails/spring]
-  # gem "spring"
 
   # Ruby LSP for VS Code
   gem "ruby-lsp", require: false
@@ -89,22 +98,6 @@ group :test do
   # Add mocha for mocking in tests
   gem "mocha"
 
-  # RSpec for testing
-  gem 'rspec-rails'
-  gem 'factory_bot_rails'
-  gem 'faker'
+  # Database cleaner
   gem 'database_cleaner-active_record'
 end
-
-# add pagy for infininte scrolling
-gem 'pagy'
-
-# add validations for uploads and upload sizes
-gem 'active_storage_validations'
-
-# openai gem
-gem 'ruby-openai'
-
-# faraday gem files
-gem 'faraday'
-gem 'faraday-retry'

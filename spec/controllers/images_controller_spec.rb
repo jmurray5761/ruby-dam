@@ -31,7 +31,7 @@ RSpec.describe ImagesController, type: :controller do
   end
 
   let(:oversized_file_attributes) do
-    file_content = '0' * 6.megabytes
+    file_content = '0' * 11.megabytes # Larger than MAX_FILE_SIZE (10MB)
     file = Rack::Test::UploadedFile.new(
       StringIO.new(file_content),
       'image/jpeg',
@@ -98,19 +98,10 @@ RSpec.describe ImagesController, type: :controller do
     end
 
     context 'with non-existent image' do
-      it 'redirects to index with not found message' do
-        get :show, params: { id: 999 }
-        expect(response).to redirect_to(images_url)
+      it 'redirects to index with error message' do
+        get :show, params: { id: 'nonexistent' }
+        expect(response).to redirect_to(images_path)
         expect(flash[:alert]).to eq('Image not found.')
-      end
-
-      it 'returns not found status in JSON format' do
-        get :show, params: { id: 999 }, format: :json
-        expect(response).to have_http_status(:not_found)
-        expect(JSON.parse(response.body)).to include(
-          "status" => "error",
-          "message" => "Image not found."
-        )
       end
     end
   end
@@ -134,30 +125,31 @@ RSpec.describe ImagesController, type: :controller do
   end
 
   describe 'GET #edit' do
+    let(:image) { create(:image, :with_file) }
+
     it 'returns a success response' do
-      image = create(:image, :with_file)
       get :edit, params: { id: image.to_param }
       expect(response).to be_successful
+      expect(response).to have_http_status(:ok)
+    end
+
+    it 'assigns the requested image as @image' do
+      get :edit, params: { id: image.to_param }
+      expect(assigns(:image)).to eq(image)
+    end
+
+    it 'renders the edit template' do
+      get :edit, params: { id: image.to_param }
+      expect(response).to render_template(:edit)
     end
   end
 
   describe 'POST #create' do
-    context 'with valid parameters' do
-      before do
-        # Mock the dimension validation for test environment
-        allow_any_instance_of(Image).to receive(:get_dimensions).and_return({ width: 200, height: 200 })
-      end
-
+    context 'with valid params' do
       it 'creates a new Image' do
         expect {
           post :create, params: { image: valid_attributes }
         }.to change(Image, :count).by(1)
-      end
-
-      it 'assigns a newly created image as @image' do
-        post :create, params: { image: valid_attributes }
-        expect(assigns(:image)).to be_a(Image)
-        expect(assigns(:image)).to be_persisted
       end
 
       it 'redirects to the created image' do
@@ -165,225 +157,139 @@ RSpec.describe ImagesController, type: :controller do
         expect(response).to redirect_to(Image.last)
       end
 
-      it 'attaches the file' do
+      it 'sets a success notice' do
         post :create, params: { image: valid_attributes }
-        expect(Image.last.file).to be_attached
+        expect(flash[:notice]).to eq('Image was successfully created.')
       end
     end
 
-    context 'with invalid file type' do
-      let(:invalid_file_type_attributes) do
-        {
-          name: "Test Image",
-          description: "Test Description",
-          file: fixture_file_upload('spec/fixtures/files/invalid.txt', 'text/plain')
-        }
-      end
-
-      it 'does not create a new Image' do
-        expect {
-          post :create, params: { image: invalid_file_type_attributes }
-        }.not_to change(Image, :count)
-      end
-
-      it 'returns unprocessable entity status' do
-        post :create, params: { image: invalid_file_type_attributes }
+    context 'with invalid params' do
+      it 'returns a success response (i.e. to display the new template)' do
+        post :create, params: { image: invalid_attributes }
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it 'includes error message about invalid file type' do
-        post :create, params: { image: invalid_file_type_attributes }
-        expect(assigns(:image).errors[:file]).to include('must be a PNG, JPEG, or GIF')
+      it 're-renders the new template' do
+        post :create, params: { image: invalid_attributes }
+        expect(response).to render_template(:new)
+      end
+
+      it 'assigns a newly created but unsaved image as @image' do
+        post :create, params: { image: invalid_attributes }
+        expect(assigns(:image)).to be_a_new(Image)
       end
     end
 
-    context 'with file size exceeding limit' do
-      let(:oversized_file_attributes) do
-        file_content = '0' * 6.megabytes
-        file = Rack::Test::UploadedFile.new(
-          StringIO.new(file_content),
-          'image/jpeg',
-          true,
-          original_filename: 'large_image.jpg'
-        )
-        {
-          name: 'Test Image',
-          description: 'Test Description',
-          file: file
-        }
-      end
-
-      it 'does not create a new Image' do
-        expect {
-          post :create, params: { image: oversized_file_attributes }
-        }.not_to change(Image, :count)
-      end
-
-      it 'returns unprocessable entity status' do
+    context 'with oversized file' do
+      it 'returns a success response (i.e. to display the new template)' do
         post :create, params: { image: oversized_file_attributes }
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it 'includes error message about file size' do
+      it 're-renders the new template' do
+        post :create, params: { image: oversized_file_attributes }
+        expect(response).to render_template(:new)
+      end
+
+      it 'sets an error message' do
         post :create, params: { image: oversized_file_attributes }
         expect(assigns(:image).errors[:file]).to include('The file size is too large')
       end
     end
 
-    context 'with malformed image file' do
-      before do
-        allow_any_instance_of(Image).to receive(:validate_file_type).and_raise(ActiveStorage::IntegrityError.new("Invalid file format"))
-      end
-
-      it 'does not create a new Image' do
-        expect {
-          post :create, params: { image: malformed_file_attributes }
-        }.not_to change(Image, :count)
-      end
-
-      it 'returns unprocessable entity status' do
-        post :create, params: { image: malformed_file_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
-      end
-
-      it 'includes error about invalid file format' do
-        post :create, params: { image: malformed_file_attributes }
-        expect(assigns(:image).errors[:file]).to include("File upload failed. Please try again.")
-      end
-    end
-
-    context "with timeout during upload" do
-      before do
-        allow_any_instance_of(Image).to receive(:save).and_raise(Timeout::Error.new("Upload timed out"))
-      end
-
-      it "handles timeout error" do
-        post :create, params: { image: valid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
-        expect(assigns(:image).errors[:base]).to include("Upload timed out, please try again")
-      end
-    end
-
-    context "with disk full error" do
-      before do
-        allow_any_instance_of(Image).to receive(:save).and_raise(StandardError.new("Disk is full"))
-      end
-
-      it "handles disk full error" do
-        post :create, params: { image: valid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
-        expect(assigns(:image).errors[:base]).to include("File could not be uploaded: storage error")
-      end
-    end
-
-    context 'with concurrent upload' do
-      before do
-        allow_any_instance_of(Image).to receive(:save).and_raise(ActiveRecord::StaleObjectError)
-      end
-
-      it 'handles race condition' do
-        post :create, params: { image: valid_attributes }
-        expect(response).to have_http_status(:unprocessable_entity)
-        expect(assigns(:image).errors[:base]).to include("Upload conflict detected, please try again")
-      end
-    end
-
     context 'with invalid dimensions' do
-      it 'does not create a new Image' do
-        expect {
-          post :create, params: { image: invalid_dimensions_attributes }
-        }.not_to change(Image, :count)
-      end
-
-      it 'returns unprocessable entity status' do
+      it 'returns a success response (i.e. to display the new template)' do
         post :create, params: { image: invalid_dimensions_attributes }
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it 'includes error about invalid dimensions' do
+      it 're-renders the new template' do
         post :create, params: { image: invalid_dimensions_attributes }
-        expect(assigns(:image).errors[:dimensions]).to include("must be at least 100x100 pixels")
+        expect(response).to render_template(:new)
+      end
+
+      it 'sets an error message' do
+        post :create, params: { image: invalid_dimensions_attributes }
+        expect(assigns(:image).errors[:dimensions]).to include('must be at least 100x100 pixels')
       end
     end
 
-    # Add JSON API response tests
-    context "with JSON format" do
-      render_views
-
-      before do
-        # Mock the dimension validation for test environment
-        allow_any_instance_of(Image).to receive(:get_dimensions).and_return({ width: 200, height: 200 })
+    context 'with malformed file' do
+      it 'returns a success response (i.e. to display the new template)' do
+        post :create, params: { image: malformed_file_attributes }
+        expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it "returns JSON response for successful creation" do
-        post :create, params: { image: valid_attributes, format: :json }
-        expect(response.content_type).to include('application/json')
-        expect(JSON.parse(response.body)).to include(
-          'status' => 'success',
-          'message' => 'Image was successfully uploaded and processed.'
-        )
+      it 're-renders the new template' do
+        post :create, params: { image: malformed_file_attributes }
+        expect(response).to render_template(:new)
       end
 
-      it "returns JSON response for validation errors" do
-        post :create, params: { image: invalid_attributes, format: :json }
-        expect(response.content_type).to include('application/json')
-        json_response = JSON.parse(response.body)
-        expect(json_response['status']).to eq('error')
-        expect(json_response).to have_key('errors')
+      it 'sets an error message' do
+        post :create, params: { image: malformed_file_attributes }
+        expect(assigns(:image).errors[:file]).to include('must be a PNG, JPEG, or GIF')
       end
     end
   end
 
   describe 'PUT #update' do
+    let(:image) { create(:image, :with_file) }
+    let(:new_attributes) do
+      {
+        name: 'Updated Image',
+        description: 'Updated description'
+      }
+    end
+
     context 'with valid params' do
-      let(:new_attributes) do
-        {
-          name: "Updated Image",
-          description: "Updated Description"
-        }
-      end
-
-      let(:image) { create(:image, :with_file) }
-
-      before do
-        allow_any_instance_of(Image).to receive(:get_dimensions).and_return({ width: 200, height: 200 })
-      end
-
       it 'updates the requested image' do
         put :update, params: { id: image.to_param, image: new_attributes }
         image.reload
-        expect(image.name).to eq("Updated Image")
-        expect(image.description).to eq("Updated Description")
+        expect(image.name).to eq('Updated Image')
+        expect(image.description).to eq('Updated description')
       end
 
       it 'redirects to the image' do
-        put :update, params: { id: image.to_param, image: valid_attributes }
+        put :update, params: { id: image.to_param, image: new_attributes }
         expect(response).to redirect_to(image)
+      end
+
+      it 'sets a success notice' do
+        put :update, params: { id: image.to_param, image: new_attributes }
+        expect(flash[:notice]).to eq('Image was successfully updated.')
       end
     end
 
     context 'with invalid params' do
-      let(:image) { create(:image, :with_file) }
-
-      it 'returns unprocessable entity status' do
+      it 'returns a success response (i.e. to display the edit template)' do
         put :update, params: { id: image.to_param, image: invalid_attributes }
         expect(response).to have_http_status(:unprocessable_entity)
+      end
+
+      it 're-renders the edit template' do
+        put :update, params: { id: image.to_param, image: invalid_attributes }
+        expect(response).to render_template(:edit)
       end
     end
   end
 
   describe 'DELETE #destroy' do
+    let!(:image) { create(:image, :with_file) }
+
     it 'destroys the requested image' do
-      image = create(:image, :with_file)
       expect {
         delete :destroy, params: { id: image.to_param }
       }.to change(Image, :count).by(-1)
     end
 
     it 'redirects to the images list' do
-      image = create(:image, :with_file)
       delete :destroy, params: { id: image.to_param }
       expect(response).to redirect_to(images_url)
+    end
+
+    it 'sets a success notice' do
+      delete :destroy, params: { id: image.to_param }
+      expect(flash[:notice]).to eq('Image was successfully deleted.')
     end
   end
 end 

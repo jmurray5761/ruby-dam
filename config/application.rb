@@ -13,6 +13,7 @@ require "action_text/engine"
 require "action_view/railtie"
 require "action_cable/engine"
 require "rails/test_unit/railtie"
+require "neighbor"
 
 # Require the gems listed in Gemfile, including any gems
 # you've limited to :test, :development, or :production.
@@ -35,6 +36,9 @@ module ImageUpload
     #
     # config.time_zone = "Central Time (US & Canada)"
     # config.eager_load_paths << Rails.root.join("extras")
+
+    # Use SQL schema format instead of Ruby schema format
+    config.active_record.schema_format = :sql
 
     # Opt in to the new timezone behavior in Rails 8.1
     config.active_support.to_time_preserves_timezone = :zone
