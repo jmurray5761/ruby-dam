@@ -20,7 +20,8 @@ RSpec.describe 'images:generate_embeddings' do
     clear_enqueued_jobs
 
     # Set some images to have embeddings
-    image2.update!(embedding: Array.new(512) { rand(-1.0..1.0) })
+    vector = Array.new(1536) { rand(-1.0..1.0) }
+    image2.update_columns(embedding: vector)
 
     # Run the rake task
     Rake::Task['images:generate_embeddings'].invoke

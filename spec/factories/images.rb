@@ -134,7 +134,7 @@ FactoryBot.define do
 
     trait :with_embedding do
       after(:build) do |image|
-        image.embedding = Array.new(512) { rand(-1.0..1.0) }
+        image.embedding = Array.new(1536) { rand(-1.0..1.0) }
       end
     end
 

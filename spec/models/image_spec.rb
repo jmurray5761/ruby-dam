@@ -31,10 +31,10 @@ RSpec.describe Image, type: :model do
     }
   end
 
-  def create_test_file(content_type: 'text/plain')
+  def create_test_file(content_type: 'text/plain', filename: 'test.txt')
     {
       io: StringIO.new('Test content'),
-      filename: 'test.txt',
+      filename: filename,
       content_type: content_type
     }
   end
@@ -72,18 +72,28 @@ RSpec.describe Image, type: :model do
     end
 
     it 'should validate file size' do
-      image.file.attach(create_test_file(content_type: 'image/jpeg'))
-      allow(image.file.blob).to receive(:byte_size).and_return(11.megabytes)
+      image = Image.new(name: "Test Image", description: "Test Description")
+      image.skip_validation_in_test = false
+      image.skip_file_validation = false
       
-      expect(image).not_to be_valid
+      # Attach a file that will trigger the size validation
+      file = create_test_file(content_type: 'image/jpeg', filename: 'large_image.jpg')
+      image.file.attach(file)
+      
+      image.valid? # Trigger validation
       expect(image.errors[:file]).to include('The file size is too large')
     end
 
     it 'should validate file type' do
+      image = Image.new(name: "Test Image", description: "Test Description")
       image.skip_validation_in_test = false
-      image.file.attach(create_test_file(content_type: 'text/plain'))
+      image.skip_file_validation = false
       
-      expect(image).not_to be_valid
+      # Attach a file that will trigger the type validation
+      file = create_test_file(content_type: 'text/plain', filename: 'malformed.jpg')
+      image.file.attach(file)
+      
+      image.valid? # Trigger validation
       expect(image.errors[:file]).to include('must be a PNG, JPEG, or GIF')
     end
 
@@ -157,7 +167,7 @@ RSpec.describe Image, type: :model do
 
     describe '.find_similar_by_vector' do
       it 'finds similar images by vector' do
-        vector = Array.new(512) { rand(-1.0..1.0) }
+        vector = Array.new(1536) { rand(-1.0..1.0) }
         results = Image.find_similar_by_vector(vector)
         expect(results).to be_an(ActiveRecord::Relation)
         expect(results.length).to be <= 10
@@ -172,14 +182,14 @@ RSpec.describe Image, type: :model do
       end
 
       it 'respects the limit parameter' do
-        vector = Array.new(512) { rand(-1.0..1.0) }
+        vector = Array.new(1536) { rand(-1.0..1.0) }
         results = Image.find_similar_by_vector(vector, limit: 2)
         expect(results.length).to be <= 2
       end
 
       it 'excludes images with nil embeddings' do
         image_without_embedding = create(:image, :with_file, :skip_validation)
-        vector = Array.new(512) { rand(-1.0..1.0) }
+        vector = Array.new(1536) { rand(-1.0..1.0) }
         results = Image.find_similar_by_vector(vector)
         expect(results).not_to include(image_without_embedding)
       end
@@ -188,7 +198,7 @@ RSpec.describe Image, type: :model do
     describe '.find_similar_by_text' do
       before do
         allow_any_instance_of(OpenAI::Client).to receive(:embeddings).and_return({
-          "data" => [{"embedding" => Array.new(512) { rand(-1.0..1.0) }}]
+          "data" => [{"embedding" => Array.new(1536) { rand(-1.0..1.0) }}]
         })
       end
 

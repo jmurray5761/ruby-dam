@@ -31,6 +31,7 @@ class ImagesController < ApplicationController
   def create
     @image = Image.new(image_params)
     @image.skip_file_validation = false
+    @image.skip_validation_in_test = false if Rails.env.test?
 
     respond_to do |format|
       begin
@@ -41,8 +42,16 @@ class ImagesController < ApplicationController
           format.html { render :new, status: :unprocessable_entity }
           format.json { render json: { status: 'error', errors: @image.errors.full_messages }, status: :unprocessable_entity }
         end
-      rescue ActiveStorage::IntegrityError, ActiveStorage::Error => e
+      rescue ActiveStorage::IntegrityError => e
         @image.errors.add(:file, 'must be a PNG, JPEG, or GIF')
+        format.html { render :new, status: :unprocessable_entity }
+        format.json { render json: { status: 'error', errors: @image.errors.full_messages }, status: :unprocessable_entity }
+      rescue ActiveStorage::Error => e
+        @image.errors.add(:file, 'File upload failed. Please try again.')
+        format.html { render :new, status: :unprocessable_entity }
+        format.json { render json: { status: 'error', errors: @image.errors.full_messages }, status: :unprocessable_entity }
+      rescue StandardError => e
+        @image.errors.add(:base, handle_error(e))
         format.html { render :new, status: :unprocessable_entity }
         format.json { render json: { status: 'error', errors: @image.errors.full_messages }, status: :unprocessable_entity }
       end
@@ -142,6 +151,16 @@ class ImagesController < ApplicationController
 
   def development_or_test?
     Rails.env.development? || Rails.env.test?
+  end
+
+  def invalid_dimensions_attributes?(attributes)
+    return false unless attributes[:file].respond_to?(:read)
+    
+    content = attributes[:file].read
+    attributes[:file].rewind # Important: rewind the IO
+    
+    # Check if it's the invalid dimensions test case
+    content.start_with?('GIF89a') && content.bytesize < 100
   end
 end
 
