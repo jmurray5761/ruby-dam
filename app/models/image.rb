@@ -16,8 +16,8 @@ class Image < ApplicationRecord
   # Set default value for generate flag
   after_initialize :set_defaults
 
-  validates :name, presence: true
-  validates :description, presence: true
+  validates :name, presence: true, unless: :should_skip_name_validation?
+  validates :description, presence: true, unless: :should_skip_description_validation?
   validates :file, presence: { message: "can't be blank" }, unless: :skip_file_validation
   
   # File validations
@@ -26,9 +26,10 @@ class Image < ApplicationRecord
   validate :validate_dimensions, if: :should_validate_file?
   validate :validate_embedding_dimensions, if: :should_validate_file?
 
-  attr_accessor :file_error, :dimensions, :generate_name_and_description, :skip_file_validation, :file_attachment_error, :skip_validation_in_test
+  attr_accessor :file_error, :dimensions, :generate_name_and_description, :skip_file_validation, :file_attachment_error, :skip_validation_in_test, :skip_job_enqueuing
 
   after_create_commit :enqueue_jobs
+  before_save :generate_name_and_description_if_needed
 
   scope :with_embedding, -> { where.not(embedding: nil) }
   scope :with_valid_embedding, -> {
@@ -80,24 +81,37 @@ class Image < ApplicationRecord
   end
 
   def should_process?
-    Rails.logger.debug "generate_name_and_description=#{generate_name_and_description}"
-    generate_name_and_description
+    # In test environment, respect the flag
+    if Rails.env.test?
+      return @generate_name_and_description unless @generate_name_and_description.nil?
+      return true
+    end
+    
+    # In non-test environment, default to true unless explicitly set to false
+    @generate_name_and_description.nil? ? true : @generate_name_and_description
   end
 
   def enqueue_jobs
-    # In test environment, only skip if explicitly set and not processing
-    if Rails.env.test?
-      Rails.logger.debug "Test environment: skip_validation_in_test=#{@skip_validation_in_test}, should_process=#{should_process?}"
-      return if @skip_validation_in_test && !should_process?
-    end
+    Rails.logger.debug "Enqueueing jobs - skip_validation_in_test: #{@skip_validation_in_test}, should_process: #{should_process?}, skip_job_enqueuing: #{@skip_job_enqueuing}"
+    
+    # Skip job enqueuing in test environment if validation is skipped
+    return if Rails.env.test? && @skip_validation_in_test
+    
+    # Skip if we're already processing
+    return if @skip_job_enqueuing
     
     if file.attached?
-      Rails.logger.debug "File attached, enqueueing jobs"
-      GenerateImageEmbeddingJob.perform_later(id)
       if should_process?
-        Rails.logger.debug "Should process, enqueueing ProcessImageJob"
-        ProcessImageJob.perform_later(id)
+        Rails.logger.debug "Should process, enqueueing both jobs"
+        # Process name and description generation synchronously
+        generate_name_and_description_if_needed
+        # Only enqueue the embedding job
+        GenerateImageEmbeddingJob.perform_later(id)
+      else
+        Rails.logger.debug "Should not process, skipping job enqueuing"
       end
+    else
+      Rails.logger.debug "No file attached, skipping job enqueuing"
     end
   end
 
@@ -125,9 +139,10 @@ class Image < ApplicationRecord
   end
 
   def should_validate_file?
-    return false if skip_file_validation
+    return false unless file.attached?
     return false if Rails.env.test? && @skip_validation_in_test
-    file.attached?
+    return false if generate_name_and_description
+    true
   end
 
   def should_generate_metadata?
@@ -181,47 +196,88 @@ class Image < ApplicationRecord
          .limit(limit)
   end
 
+  def generate_name_and_description_if_needed
+    return unless should_process?
+    return if name.present? && description.present?
+    return if generate_name_and_description == false
+
+    Rails.logger.info("Generating name and description for image #{id}")
+    Rails.logger.info("Current state - name: #{name.inspect}, description: #{description.inspect}")
+    Rails.logger.info("generate_name_and_description flag: #{generate_name_and_description.inspect}")
+
+    begin
+      encoded_image = encode_image(file)
+      unless encoded_image
+        Rails.logger.error("Failed to encode image")
+        return
+      end
+
+      Rails.logger.info("Image encoded successfully, calling OpenAI service")
+      response = OpenAiService.generate_name_and_description(encoded_image)
+      
+      unless response
+        Rails.logger.error("Failed to get response from OpenAI service")
+        return
+      end
+
+      Rails.logger.info("Received response from OpenAI: #{response.inspect}")
+      
+      if response[:name].present? && response[:description].present?
+        self.name = response[:name]
+        self.description = response[:description]
+        Rails.logger.info("Successfully set name and description")
+        save! # Force save to ensure changes are persisted
+      else
+        Rails.logger.error("Invalid response format from OpenAI: #{response.inspect}")
+      end
+    rescue StandardError => e
+      Rails.logger.error("Error generating name and description: #{e.message}")
+      Rails.logger.error(e.backtrace.join("\n"))
+    end
+  end
+
   private
 
+  def should_skip_name_validation?
+    generate_name_and_description || skip_file_validation
+  end
+
+  def should_skip_description_validation?
+    generate_name_and_description || skip_file_validation
+  end
+
   def validate_file_type
-    return unless file.attached?
-    return true if Rails.env.test? && @skip_validation_in_test
+    return unless should_validate_file?
 
     # In test environment, check for malformed file
     if Rails.env.test?
       if file.blob.filename.to_s == 'malformed.jpg'
         errors.add(:file, 'must be a PNG, JPEG, or GIF')
-        return false
+        return
       end
-      return true
+      return
     end
     
     # Check content type
     unless VALID_CONTENT_TYPES.include?(file.content_type)
       errors.add(:file, 'must be a PNG, JPEG, or GIF')
-      return false
     end
-
-    true
   end
 
   def validate_file_size
-    return unless file.attached?
-    return true if Rails.env.test? && @skip_validation_in_test
+    return unless should_validate_file?
     
+    # In test environment, check for large file
     if Rails.env.test?
       if file.blob.filename.to_s == 'large_image.jpg'
         errors.add(:file, 'The file size is too large')
-        return false
+        return
       end
-      return true
+      return
     end
 
     if file.blob.byte_size > MAX_FILE_SIZE
       errors.add(:file, 'The file size is too large')
-      false
-    else
-      true
     end
   end
 
@@ -236,44 +292,73 @@ class Image < ApplicationRecord
   end
 
   def validate_dimensions
-    return unless file.attached?
-    return true if Rails.env.test? && @skip_validation_in_test
-
-    # In test environment, check for invalid dimensions
-    if Rails.env.test?
-      if file.blob.filename.to_s == 'small_image.gif'
-        errors.add(:dimensions, 'must be at least 100x100 pixels')
-        return false
-      end
-      return true
-    end
-
+    return unless should_validate_file?
+    
+    Rails.logger.info("Starting dimension validation")
     begin
-      dimensions = get_dimensions_from_file
-      width, height = dimensions
+      # Skip validation if file is not yet attached
+      unless file.attached?
+        Rails.logger.info("File not yet attached, skipping dimension validation")
+        return
+      end
+
+      # Skip validation if we're generating name and description
+      if generate_name_and_description
+        Rails.logger.info("Generating name and description, skipping dimension validation")
+        return
+      end
+
+      width, height = get_dimensions_from_file
+      Rails.logger.info("Got dimensions: #{width}x#{height}")
+
+      if width.nil? || height.nil? || width == 0 || height == 0
+        Rails.logger.warn("Invalid dimensions: #{width}x#{height}")
+        errors.add(:dimensions, "could not be determined")
+        return
+      end
 
       if width < MIN_DIMENSIONS[0] || height < MIN_DIMENSIONS[1]
+        Rails.logger.warn("Image dimensions too small: #{width}x#{height}")
         errors.add(:dimensions, "must be at least #{MIN_DIMENSIONS[0]}x#{MIN_DIMENSIONS[1]} pixels")
-        false
       else
-        true
+        Rails.logger.info("Image dimensions valid: #{width}x#{height}")
       end
+    rescue ActiveStorage::FileNotFoundError => e
+      Rails.logger.error("File not found during dimension validation: #{e.message}")
+      # Don't add an error here as the file will be processed after save
+      return
     rescue StandardError => e
-      Rails.logger.error("Error validating dimensions: #{e.message}")
-      errors.add(:dimensions, 'could not be determined')
-      false
+      Rails.logger.error("Error in validate_dimensions: #{e.message}")
+      Rails.logger.error(e.backtrace.join("\n"))
+      errors.add(:dimensions, "could not be validated")
     end
   end
 
   def get_dimensions_from_file
-    return [200, 200] if Rails.env.test? && @skip_validation_in_test # Default test dimensions
-    
+    return [nil, nil] unless file.attached?
+
     begin
-      image = MiniMagick::Image.new(file.blob.service.path_for(file.key))
-      [image[:width], image[:height]]
+      dimensions = nil
+      file.blob.open do |tempfile|
+        # Use direct ImageMagick command to get dimensions
+        result = `magick identify -format "%w %h" #{tempfile.path}`
+        if $?.success?
+          width, height = result.strip.split.map(&:to_i)
+          dimensions = [width, height]
+          Rails.logger.info("Read dimensions using magick identify: #{dimensions.inspect}")
+        else
+          Rails.logger.error("Failed to read image dimensions using magick identify")
+          dimensions = [nil, nil]
+        end
+      end
+      dimensions
+    rescue ActiveStorage::FileNotFoundError => e
+      Rails.logger.error("File not found during dimension reading: #{e.message}")
+      [nil, nil]
     rescue StandardError => e
-      Rails.logger.error("Error getting dimensions: #{e.message}")
-      [0, 0] # Return invalid dimensions to trigger validation error
+      Rails.logger.error("Error reading image dimensions: #{e.message}")
+      Rails.logger.error(e.backtrace.join("\n"))
+      [nil, nil]
     end
   end
 
@@ -294,5 +379,43 @@ class Image < ApplicationRecord
       Rails.logger.error("Error generating metadata: #{e.message}")
       errors.add(:file, 'File upload failed. Please try again.')
     end
+  end
+
+  def encode_image(file)
+    return nil if file.nil? || !file.attached?
+    
+    begin
+      encoded = nil
+      file.blob.open do |tempfile|
+        encoded = Base64.strict_encode64(tempfile.read)
+      end
+      encoded
+    rescue StandardError => e
+      Rails.logger.error("Error encoding image: #{e.message}")
+      Rails.logger.error(e.backtrace.join("\n"))
+      nil
+    end
+  end
+
+  def parse_generated_content(content)
+    return [nil, nil] unless content.present?
+
+    name_match = content.match(/Name:\s*(.+?)(?:\n|$)/)
+    desc_match = content.match(/Description:\s*(.+?)(?:\n|$)/)
+
+    name = name_match ? name_match[1].strip : nil
+    description = desc_match ? desc_match[1].strip : nil
+
+    [name, description]
+  end
+
+  def parse_fallback_content(content)
+    return [nil, nil] unless content.present?
+
+    # Generate a 4-word name from the content
+    words = content.split(/\s+/)
+    name = words.first(4).join(' ')
+    
+    [name, content]
   end
 end

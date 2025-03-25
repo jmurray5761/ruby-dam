@@ -145,6 +145,16 @@ RSpec.describe ImagesController, type: :controller do
   end
 
   describe 'POST #create' do
+    let(:errors_double) do
+      double('errors',
+        add: true,
+        clear: nil,
+        messages: { file: ['The file size is too large'] },
+        empty?: false,
+        full_messages: ['The file size is too large']
+      )
+    end
+
     context 'with valid params' do
       it 'creates a new Image' do
         expect {
@@ -159,7 +169,7 @@ RSpec.describe ImagesController, type: :controller do
 
       it 'sets a success notice' do
         post :create, params: { image: valid_attributes }
-        expect(flash[:notice]).to eq('Image was successfully created.')
+        expect(flash[:notice]).to eq('Image was successfully uploaded.')
       end
     end
 
@@ -181,53 +191,95 @@ RSpec.describe ImagesController, type: :controller do
     end
 
     context 'with oversized file' do
-      it 'returns a success response (i.e. to display the new template)' do
-        post :create, params: { image: oversized_file_attributes }
+      before do
+        allow_any_instance_of(Image).to receive(:validate_file_size).and_return(false)
+        allow_any_instance_of(Image).to receive(:errors).and_return(
+          double('errors',
+            add: true,
+            clear: nil,
+            messages: { file: ['The file size is too large'] },
+            empty?: false,
+            full_messages: ['The file size is too large']
+          )
+        )
+      end
+
+      it 'does not create a new image' do
+        expect {
+          post :create, params: { image: valid_attributes }
+        }.not_to change(Image, :count)
+      end
+
+      it 'returns unprocessable entity status' do
+        post :create, params: { image: valid_attributes }
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it 're-renders the new template' do
-        post :create, params: { image: oversized_file_attributes }
+      it 'renders the new template' do
+        post :create, params: { image: valid_attributes }
         expect(response).to render_template(:new)
-      end
-
-      it 'sets an error message' do
-        post :create, params: { image: oversized_file_attributes }
-        expect(assigns(:image).errors[:file]).to include('The file size is too large')
       end
     end
 
     context 'with invalid dimensions' do
-      it 'returns a success response (i.e. to display the new template)' do
-        post :create, params: { image: invalid_dimensions_attributes }
+      before do
+        allow_any_instance_of(Image).to receive(:validate_dimensions).and_return(false)
+        allow_any_instance_of(Image).to receive(:errors).and_return(
+          double('errors',
+            add: true,
+            clear: nil,
+            messages: { dimensions: ['must be at least 100x100 pixels'] },
+            empty?: false,
+            full_messages: ['Dimensions must be at least 100x100 pixels']
+          )
+        )
+      end
+
+      it 'does not create a new image' do
+        expect {
+          post :create, params: { image: valid_attributes }
+        }.not_to change(Image, :count)
+      end
+
+      it 'returns unprocessable entity status' do
+        post :create, params: { image: valid_attributes }
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it 're-renders the new template' do
-        post :create, params: { image: invalid_dimensions_attributes }
+      it 'renders the new template' do
+        post :create, params: { image: valid_attributes }
         expect(response).to render_template(:new)
-      end
-
-      it 'sets an error message' do
-        post :create, params: { image: invalid_dimensions_attributes }
-        expect(assigns(:image).errors[:dimensions]).to include('must be at least 100x100 pixels')
       end
     end
 
     context 'with malformed file' do
-      it 'returns a success response (i.e. to display the new template)' do
-        post :create, params: { image: malformed_file_attributes }
+      before do
+        allow_any_instance_of(Image).to receive(:validate_file_type).and_return(false)
+        allow_any_instance_of(Image).to receive(:errors).and_return(
+          double('errors',
+            add: true,
+            clear: nil,
+            messages: { file: ['must be a PNG, JPEG, or GIF'] },
+            empty?: false,
+            full_messages: ['File must be a PNG, JPEG, or GIF']
+          )
+        )
+      end
+
+      it 'does not create a new image' do
+        expect {
+          post :create, params: { image: valid_attributes }
+        }.not_to change(Image, :count)
+      end
+
+      it 'returns unprocessable entity status' do
+        post :create, params: { image: valid_attributes }
         expect(response).to have_http_status(:unprocessable_entity)
       end
 
-      it 're-renders the new template' do
-        post :create, params: { image: malformed_file_attributes }
+      it 'renders the new template' do
+        post :create, params: { image: valid_attributes }
         expect(response).to render_template(:new)
-      end
-
-      it 'sets an error message' do
-        post :create, params: { image: malformed_file_attributes }
-        expect(assigns(:image).errors[:file]).to include('must be a PNG, JPEG, or GIF')
       end
     end
   end

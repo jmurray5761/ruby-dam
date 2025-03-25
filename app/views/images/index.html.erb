@@ -9,8 +9,12 @@
           <% if image.file.attached? %>
             <!-- Image wrapped in link to show image page -->
             <%= link_to image_path(image) do %>
-              <% variant = image.file.variant(resize_to_limit: [200, 150]).processed %>
-              <%= image_tag(variant, class: 'image') %>
+              <% begin %>
+                <%= image_tag(image.file, class: 'image', style: 'max-width: 200px; max-height: 150px; object-fit: contain;') %>
+              <% rescue StandardError => e %>
+                <p>Error loading image</p>
+                <% Rails.logger.error "Error loading image: #{e.message}" %>
+              <% end %>
             <% end %>
             <!-- Display the image name -->
             <h3 class="image-name"><%= image.name %></h3> <!-- Assuming 'name' is the attribute -->

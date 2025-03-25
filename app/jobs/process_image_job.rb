@@ -3,23 +3,26 @@ class ProcessImageJob < ApplicationJob
 
   def perform(image_id)
     image = Image.find_by(id: image_id)
-    return unless image&.file&.attached?
+    return unless image
 
     begin
-      # Create a thumbnail version of the image
-      image.file.open do |file|
-        thumbnail = MiniMagick::Image.read(file)
-        thumbnail.resize "300x300"
-        
-        # Attach the thumbnail
-        image.thumbnail.attach(
-          io: StringIO.new(thumbnail.to_blob),
-          filename: "thumbnail_#{image.file.filename}",
-          content_type: image.file.content_type
-        )
-      end
+      # Set flag to prevent job enqueuing during processing
+      image.instance_variable_set(:@skip_job_enqueuing, true)
+      
+      # Generate name and description if needed
+      image.generate_name_and_description_if_needed
+      
+      # Create thumbnail
+      image.file.variant(resize_to_limit: [300, 300]).processed
+      
+      # Save changes
+      image.save!
     rescue StandardError => e
       Rails.logger.error("Error processing image #{image_id}: #{e.message}")
+      Rails.logger.error(e.backtrace.join("\n"))
+    ensure
+      # Clear the flag
+      image.instance_variable_set(:@skip_job_enqueuing, false)
     end
   end
 end 

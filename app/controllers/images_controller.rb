@@ -30,31 +30,27 @@ class ImagesController < ApplicationController
 
   def create
     @image = Image.new(image_params)
-    @image.skip_file_validation = false
-    @image.skip_validation_in_test = false if Rails.env.test?
+    @image.generate_name_and_description = true
 
-    respond_to do |format|
-      begin
-        if @image.save
-          format.html { redirect_to @image, notice: 'Image was successfully created.' }
-          format.json { render json: { status: 'success', message: 'Image was successfully uploaded and processed.' } }
-        else
-          format.html { render :new, status: :unprocessable_entity }
-          format.json { render json: { status: 'error', errors: @image.errors.full_messages }, status: :unprocessable_entity }
+    if @image.save
+      # Wait for name and description generation
+      max_attempts = 10
+      attempts = 0
+      
+      while attempts < max_attempts
+        @image.reload
+        if @image.name.present? && @image.description.present?
+          redirect_to @image, notice: 'Image was successfully uploaded.'
+          return
         end
-      rescue ActiveStorage::IntegrityError => e
-        @image.errors.add(:file, 'must be a PNG, JPEG, or GIF')
-        format.html { render :new, status: :unprocessable_entity }
-        format.json { render json: { status: 'error', errors: @image.errors.full_messages }, status: :unprocessable_entity }
-      rescue ActiveStorage::Error => e
-        @image.errors.add(:file, 'File upload failed. Please try again.')
-        format.html { render :new, status: :unprocessable_entity }
-        format.json { render json: { status: 'error', errors: @image.errors.full_messages }, status: :unprocessable_entity }
-      rescue StandardError => e
-        @image.errors.add(:base, handle_error(e))
-        format.html { render :new, status: :unprocessable_entity }
-        format.json { render json: { status: 'error', errors: @image.errors.full_messages }, status: :unprocessable_entity }
+        sleep 0.5
+        attempts += 1
       end
+      
+      # If we get here, we timed out waiting for generation
+      redirect_to @image, notice: 'Image was uploaded. Name and description are being generated.'
+    else
+      render :new, status: :unprocessable_entity
     end
   end
 
