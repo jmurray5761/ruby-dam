@@ -1,0 +1,31 @@
+<%= link_to 'Back to Images', images_path, class: 'link-button' %>
+
+<h1>Search Images</h1>
+
+<div class="search-container">
+  <% if flash.now[:alert].present? %>
+    <div class="alert alert-error">
+      <%= flash.now[:alert] %>
+    </div>
+  <% end %>
+
+  <div class="search-forms">
+    <div class="text-search">
+      <h2>Search by Text</h2>
+      <%= form_with url: search_images_path, method: :get, class: "search-form" do |f| %>
+        <%= f.text_field :q, placeholder: "Enter search text...", class: "search-input" %>
+        <%= f.submit "Search", class: "search-button" %>
+      <% end %>
+    </div>
+
+    <div class="image-search">
+      <h2>Search by Image</h2>
+      <%= form_with url: search_by_image_images_path, method: :post, class: "search-form", multipart: true do |f| %>
+        <%= f.file_field :image, accept: "image/*", class: "file-input" %>
+        <%= f.submit "Search", class: "search-button" %>
+      <% end %>
+    </div>
+  </div>
+
+  <%= render 'search_results' %>
+</div> 

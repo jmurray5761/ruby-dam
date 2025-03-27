@@ -7,6 +7,10 @@ class EmbeddingGenerator
     new(image).generate
   end
 
+  def self.generate_for_text(text)
+    new(nil).generate_text_embedding(text)
+  end
+
   def initialize(image)
     @image = image
     @client = OpenAI::Client.new(access_token: ENV['OPENAI_ACCESS_TOKEN'])
@@ -46,11 +50,40 @@ class EmbeddingGenerator
     end
   end
 
+  def generate_text_embedding(text)
+    begin
+      # Generate embedding using OpenAI's embeddings API
+      response = @client.embeddings(
+        parameters: {
+          model: "text-embedding-3-small",
+          input: text
+        }
+      )
+
+      # Get the embedding from the response
+      embedding = response.dig("data", 0, "embedding")
+
+      # Ensure the embedding has the correct dimensions
+      if embedding && embedding.length == Image::EMBEDDING_DIMENSION
+        embedding
+      else
+        Rails.logger.error "Invalid embedding dimensions: got #{embedding&.length}, expected #{Image::EMBEDDING_DIMENSION}"
+        nil
+      end
+    rescue StandardError => e
+      Rails.logger.error "Error generating text embedding: #{e.message}"
+      Rails.logger.error e.backtrace.join("\n")
+      nil
+    end
+  end
+
   private
 
   def extract_image_text(image)
-    # For now, we'll use the image name and description as text input
-    # In a real application, you might want to use OCR or other image analysis
+    # We use a text-based embedding approach for both image and text search.
+    # For images, we use the image's name and description as the text input.
+    # This ensures consistency between image and text embeddings, allowing us to
+    # search across both modalities using the same vector space.
     [image.name, image.description].compact.join(" ")
   end
 end 

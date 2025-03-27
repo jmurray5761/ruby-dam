@@ -1,0 +1,186 @@
+<div class="directory-browser" data-controller="directory-browser">
+  <div class="directory-header">
+    <h2>Select Images Directory</h2>
+    <div class="path-navigation">
+      <% path_parts = @current_path.split(File::SEPARATOR) %>
+      <% current_path = '' %>
+      <% path_parts.each do |part| %>
+        <% current_path = File.join(current_path, part) %>
+        <%= link_to part, directory_browser_index_path(path: current_path), class: 'path-part' %>
+        <%= ' / ' unless part == path_parts.last %>
+      <% end %>
+    </div>
+  </div>
+
+  <%= form_tag batch_upload_images_path, method: :post, data: { controller: "directory-browser" } do %>
+    <div class="directory-content">
+      <% if @parent_path != @current_path %>
+        <div class="directory-item">
+          <%= link_to '..', directory_browser_index_path(path: @parent_path), class: 'directory-link' %>
+        </div>
+      <% end %>
+
+      <% @files.each do |file| %>
+        <div class="directory-item <%= file[:type] %>">
+          <% if file[:type] == 'directory' %>
+            <%= link_to file[:name], directory_browser_index_path(path: file[:path]), class: 'directory-link' %>
+          <% elsif file[:is_image] %>
+            <div class="file-item">
+              <%= check_box_tag "selected_files[]", file[:path], false, 
+                  class: "file-checkbox rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50",
+                  data: { action: "change->directory-browser#updateUploadButton" } %>
+              <%= label_tag "file_#{file[:path].hash}", file[:name], class: 'file-label' %>
+              <span class="file-size"><%= number_to_human_size(file[:size]) %></span>
+              <span class="file-date"><%= file[:modified].strftime('%Y-%m-%d %H:%M') %></span>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <div class="directory-actions">
+      <button type="button" class="select-all-btn" data-action="click->directory-browser#selectAll">Select All</button>
+      <button type="button" class="deselect-all-btn" data-action="click->directory-browser#deselectAll">Deselect All</button>
+      <%= button_tag "Upload Selected", 
+          type: "submit",
+          class: "upload-selected-btn px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed",
+          disabled: true,
+          data: { directory_browser_target: "uploadButton" } %>
+    </div>
+  <% end %>
+</div>
+
+<style>
+  .directory-browser {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .directory-header {
+    margin-bottom: 20px;
+  }
+
+  .path-navigation {
+    margin-top: 10px;
+    font-size: 14px;
+  }
+
+  .path-part {
+    color: #0366d6;
+    text-decoration: none;
+  }
+
+  .path-part:hover {
+    text-decoration: underline;
+  }
+
+  .directory-content {
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    padding: 10px;
+    max-height: 600px;
+    overflow-y: auto;
+  }
+
+  .directory-item {
+    padding: 8px;
+    border-bottom: 1px solid #e1e4e8;
+  }
+
+  .directory-item:last-child {
+    border-bottom: none;
+  }
+
+  .directory-link {
+    color: #0366d6;
+    text-decoration: none;
+  }
+
+  .directory-link:hover {
+    text-decoration: underline;
+  }
+
+  .file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .file-label {
+    flex: 1;
+  }
+
+  .file-size {
+    color: #6a737d;
+    font-size: 12px;
+  }
+
+  .file-date {
+    color: #6a737d;
+    font-size: 12px;
+  }
+
+  .directory-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .directory-actions button {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid #e1e4e8;
+    background-color: #f6f8fa;
+    cursor: pointer;
+  }
+
+  .directory-actions button:hover {
+    background-color: #f3f4f6;
+  }
+
+  .directory-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+</style>
+
+<%= javascript_tag do %>
+  import { Controller } from "@hotwired/stimulus"
+
+  export default class extends Controller {
+    static targets = ["uploadButton"]
+
+    connect() {
+      this.updateUploadButton()
+    }
+
+    selectAll() {
+      document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+        checkbox.checked = true
+      })
+      this.updateUploadButton()
+    }
+
+    deselectAll() {
+      document.querySelectorAll('.file-checkbox').forEach(checkbox => {
+        checkbox.checked = false
+      })
+      this.updateUploadButton()
+    }
+
+    updateUploadButton() {
+      const checkedBoxes = document.querySelectorAll('.file-checkbox:checked')
+      const uploadButton = document.querySelector('.upload-selected-btn')
+      uploadButton.disabled = checkedBoxes.length === 0
+    }
+
+    uploadSelected() {
+      const selectedFiles = Array.from(document.querySelectorAll('.file-checkbox:checked'))
+        .map(checkbox => checkbox.value)
+      
+      // TODO: Implement file upload logic
+      console.log('Selected files:', selectedFiles)
+    }
+  }
+<% end %> 

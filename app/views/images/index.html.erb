@@ -1,32 +1,25 @@
 <%= link_to 'New Image', new_image_path, class: 'link-button' %>
+<%= link_to 'Search Images', search_images_path, class: 'link-button' %>
+<%= link_to 'Batch Upload', directory_browser_index_path, class: 'link-button' %>
 <h1>Images Home Page</h1>
 
 <div class="images-container">
-  <ul class="image-list">
-    <% @images.each do |image| %>  <!-- Loop over each image in @images -->
-      <li class="image-list-item">
-        <div class="content-wrapper">
-          <% if image.file.attached? %>
-            <!-- Image wrapped in link to show image page -->
-            <%= link_to image_path(image) do %>
-              <% begin %>
-                <%= image_tag(image.file, class: 'image', style: 'max-width: 200px; max-height: 150px; object-fit: contain;') %>
-              <% rescue StandardError => e %>
-                <p>Error loading image</p>
-                <% Rails.logger.error "Error loading image: #{e.message}" %>
-              <% end %>
-            <% end %>
-            <!-- Display the image name -->
-            <h3 class="image-name"><%= image.name %></h3> <!-- Assuming 'name' is the attribute -->
-          <% else %>
-            <p>No image available</p>
-          <% end %>
+  <div class="images-grid">
+    <% @images.each do |image| %>
+      <div class="image-card">
+        <%= image_tag image.file, class: 'image-preview' if image.file.attached? %>
+        <div class="image-info">
+          <h3><%= image.name %></h3>
+          <p><%= image.description %></p>
+          <div class="image-actions">
+            <%= link_to 'View', image, class: 'action-link' %>
+            <%= link_to 'Edit', edit_image_path(image), class: 'action-link' %>
+            <%= button_to 'Delete', image, method: :delete, class: 'delete-button', data: { confirm: 'Are you sure?' } %>
+          </div>
         </div>
-      </li>
+      </div>
     <% end %>
-  </ul>
-
-  <div class="pagination">
-    <%= pagy_nav(@pagy).html_safe %>
   </div>
+
+  <%== pagy_nav(@pagy) %>
 </div>

@@ -7,6 +7,7 @@ class ImagesController < ApplicationController
   rescue_from ActiveStorage::Error, with: :handle_storage_error
 
   before_action :set_image, only: [:show, :edit, :update, :destroy]
+  before_action :check_rate_limit, only: [:search, :search_by_image]
 
   def index
     @pagy, @images = pagy(Image.order(created_at: :desc))
@@ -87,6 +88,134 @@ class ImagesController < ApplicationController
     end
   end
 
+  def search
+    query = params[:q]
+    @images = []  # Initialize empty array for nil case
+    
+    if query.blank?
+      flash.now[:alert] = 'Please provide a search query.'
+      render :search
+      return
+    end
+
+    # Cache search results for 5 minutes
+    @pagy, @images = Rails.cache.fetch("search:#{query}", expires_in: 5.minutes) do
+      Timeout.timeout(30) do # 30 second timeout for search
+        pagy(Image.find_similar_by_text(query))
+      end
+    end
+
+    render :search
+  rescue Timeout::Error => e
+    Rails.logger.error("Search timeout: #{e.message}")
+    @images = []  # Initialize empty array for error case
+    flash.now[:alert] = 'Search timed out. Please try a more specific query.'
+    render :search
+  rescue StandardError => e
+    Rails.logger.error("Search error: #{e.message}")
+    Rails.logger.error(e.backtrace.join("\n"))
+    @images = []  # Initialize empty array for error case
+    flash.now[:alert] = 'An error occurred while searching. Please try again.'
+    render :search
+  end
+
+  def search_by_image
+    @images = []  # Initialize empty array for nil case
+    
+    if params[:image].blank?
+      flash.now[:alert] = 'Please select an image to search with.'
+      render :search
+      return
+    end
+
+    # Cache search results for 5 minutes using image hash as key
+    image_hash = Digest::SHA256.hexdigest(params[:image].read)
+    params[:image].rewind # Reset file pointer after reading
+
+    @pagy, @images = Rails.cache.fetch("image_search:#{image_hash}", expires_in: 5.minutes) do
+      Timeout.timeout(30) do # 30 second timeout for search
+        pagy(Image.find_similar_by_image(params[:image].read))
+      end
+    end
+
+    render :search
+  rescue Timeout::Error => e
+    Rails.logger.error("Image search timeout: #{e.message}")
+    @images = []  # Initialize empty array for error case
+    flash.now[:alert] = 'Image search timed out. Please try a different image.'
+    render :search
+  rescue StandardError => e
+    Rails.logger.error("Image search error: #{e.message}")
+    Rails.logger.error(e.backtrace.join("\n"))
+    @images = []  # Initialize empty array for error case
+    flash.now[:alert] = 'An error occurred while searching. Please try again.'
+    render :search
+  end
+
+  def batch_upload
+    uploaded_count = 0
+    errors = []
+
+    if params[:selected_files].present?
+      params[:selected_files].each do |file_path|
+        begin
+          # Create a new image record
+          image = Image.new
+          
+          # Convert the file path to be relative to the Rails root
+          relative_path = file_path.gsub(Rails.root.to_s, '')
+          full_path = Rails.root.join(relative_path)
+          
+          # Check if file exists
+          unless File.exist?(full_path)
+            raise "File not found: #{file_path}"
+          end
+          
+          # Read the file from the source directory
+          file = File.open(full_path)
+          
+          # Attach the file
+          image.file.attach(
+            io: file,
+            filename: File.basename(file_path),
+            content_type: File.extname(file_path)
+          )
+
+          # Save the image (this will trigger the after_save callback)
+          if image.save
+            uploaded_count += 1
+          else
+            errors << "Failed to save #{File.basename(file_path)}: #{image.errors.full_messages.join(', ')}"
+          end
+        rescue StandardError => e
+          errors << "Error processing #{File.basename(file_path)}: #{e.message}"
+          Rails.logger.error("Error processing #{file_path}: #{e.message}")
+          Rails.logger.error(e.backtrace.join("\n"))
+        ensure
+          file&.close
+        end
+      end
+    end
+
+    respond_to do |format|
+      format.json do
+        if errors.empty?
+          render json: { 
+            status: 'success', 
+            uploaded_count: uploaded_count,
+            message: "Successfully uploaded #{uploaded_count} images"
+          }
+        else
+          render json: { 
+            status: 'partial_success',
+            uploaded_count: uploaded_count,
+            errors: errors
+          }, status: :unprocessable_entity
+        end
+      end
+    end
+  end
+
   private
 
   def set_image
@@ -157,6 +286,19 @@ class ImagesController < ApplicationController
     
     # Check if it's the invalid dimensions test case
     content.start_with?('GIF89a') && content.bytesize < 100
+  end
+
+  def check_rate_limit
+    # Rate limit to 10 requests per minute per IP
+    key = "rate_limit:#{request.remote_ip}"
+    count = Rails.cache.increment(key, 1, expires_in: 1.minute)
+    
+    if count > 10
+      respond_to do |format|
+        format.html { redirect_to images_path, alert: 'Rate limit exceeded. Please try again later.' }
+        format.json { render json: { status: 'error', message: 'Rate limit exceeded. Please try again later.' }, status: :too_many_requests }
+      end
+    end
   end
 end
 

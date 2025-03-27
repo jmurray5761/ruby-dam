@@ -37,8 +37,8 @@ class Image < ApplicationRecord
   }
   scope :without_embedding, -> { where(embedding: nil) }
 
-  def self.find_similar_by_vector(vector, limit: 10)
-    return none if vector.nil? || vector.empty?
+  def self.find_similar_by_vector(vector, limit: 5)
+    return none if vector.blank?
 
     # Convert input to vector if needed
     vector = case vector
@@ -55,20 +55,41 @@ class Image < ApplicationRecord
       .limit(limit)
   end
 
-  def self.find_similar_by_text(text, limit: 10)
-    vector = EmbeddingService.generate_text_embedding(text)
-    find_similar_by_vector(vector, limit: limit)
-  rescue StandardError => e
-    Rails.logger.error("Error generating text embedding: #{e.message}")
-    none
+  def self.find_similar_by_text(text, limit: 5)
+    return none if text.blank?
+
+    begin
+      vector = EmbeddingGenerator.generate_for_text(text)
+      find_similar_by_vector(vector, limit: limit)
+    rescue StandardError => e
+      Rails.logger.error("Error generating text embedding: #{e.message}")
+      Rails.logger.error(e.backtrace.join("\n"))
+      none
+    end
   end
 
-  def self.find_similar_by_image(image_data, limit: 10)
-    vector = EmbeddingService.generate_image_embedding(image_data)
-    find_similar_by_vector(vector, limit: limit)
-  rescue StandardError => e
-    Rails.logger.error("Error generating image embedding: #{e.message}")
-    none
+  def self.find_similar_by_image(image_data, limit: 5)
+    return none if image_data.blank?
+
+    begin
+      # Create a temporary image object for the search
+      temp_image = Image.new
+      temp_image.file.attach(
+        io: StringIO.new(image_data),
+        filename: 'search_image.jpg',
+        content_type: 'image/jpeg'
+      )
+
+      # Use EmbeddingGenerator to create embedding for search image
+      embedding = EmbeddingGenerator.generate_for_image(temp_image)
+      return none unless embedding
+
+      find_similar_by_vector(embedding, limit: limit)
+    rescue StandardError => e
+      Rails.logger.error("Error generating image embedding: #{e.message}")
+      Rails.logger.error(e.backtrace.join("\n"))
+      none
+    end
   end
 
   def similar_images(limit: 10)
